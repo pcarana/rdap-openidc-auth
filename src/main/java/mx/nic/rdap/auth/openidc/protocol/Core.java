@@ -10,6 +10,7 @@ import java.util.logging.Logger;
 import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.proc.BadJOSEException;
+import com.nimbusds.jose.util.Base64;
 import com.nimbusds.jwt.JWT;
 import com.nimbusds.oauth2.sdk.AuthorizationCode;
 import com.nimbusds.oauth2.sdk.AuthorizationCodeGrant;
@@ -50,14 +51,18 @@ public class Core {
 		// Empty
 	}
 	
-	public static URI getAuthenticationURI(String client, OIDCProviderMetadata providerMetadata, String redirectURI) {
+	public static URI getAuthenticationURI(String client, OIDCProviderMetadata providerMetadata, String redirectURI,
+			String originURI) {
 		ClientID clientID = new ClientID(client);
-		//URI authorizationEndpoint = URI.create("https://accounts.google.com/o/oauth2/v2/auth");
+		// URI authorizationEndpoint =
+		// URI.create("https://accounts.google.com/o/oauth2/v2/auth");
 		URI authorizationEndpoint = providerMetadata.getAuthorizationEndpointURI();
-		//URI authorizationEndpoint = URI.create("https://demo.c2id.com/c2id-login");
-		//URI clientRedirect = URI.create("http://localhost:8080/rdap-server/domain/domain13.org");
+		// FIXME CLEAN ME please!!
+		// URI authorizationEndpoint = URI.create("https://demo.c2id.com/c2id-login");
+		// URI clientRedirect =
+		// URI.create("http://localhost:8080/rdap-server/domain/domain13.org");
 		URI clientRedirect = URI.create(redirectURI);
-		State state = new State();
+		State state = new State(Base64.encode(originURI).toString());
 		Nonce nonce = new Nonce();
 		AuthenticationRequest req = new AuthenticationRequest(authorizationEndpoint,
 				new ResponseType(ResponseType.Value.CODE), Scope.parse("openid email profile"), clientID,
@@ -98,7 +103,8 @@ public class Core {
 		Secret secret = new Secret(clientSecret);
 		URI tokenEndpoint = URI.create("https://www.googleapis.com/oauth2/v4/token");
 		//URI tokenEndpoint = URI.create("https://demo.c2id.com/c2id/token");
-		URI clientRedirect = URI.create("http://localhost:8080/rdap-server/domain/domain13.org");
+		//URI clientRedirect = URI.create("http://localhost:8080/rdap-server/domain/domain13.org");
+		URI clientRedirect = URI.create("http://localhost:8080/rdap-server/oidcverify");
 		
 		ClientSecretBasic clientSecretBasic = new ClientSecretBasic(client, secret);
 		AuthorizationCodeGrant authCodeGrant = new AuthorizationCodeGrant(code, clientRedirect);

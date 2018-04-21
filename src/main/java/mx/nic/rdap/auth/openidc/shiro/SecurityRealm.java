@@ -2,6 +2,8 @@ package mx.nic.rdap.auth.openidc.shiro;
 
 import java.net.URI;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -19,21 +21,17 @@ import org.apache.shiro.authz.SimpleAuthorizationInfo;
 import org.apache.shiro.realm.AuthorizingRealm;
 import org.apache.shiro.subject.PrincipalCollection;
 
-import com.nimbusds.oauth2.sdk.AuthorizationCode;
-import com.nimbusds.openid.connect.sdk.AuthenticationResponse;
-import com.nimbusds.openid.connect.sdk.OIDCTokenResponse;
-import com.nimbusds.openid.connect.sdk.claims.IDTokenClaimsSet;
 import com.nimbusds.openid.connect.sdk.claims.UserInfo;
 import com.nimbusds.openid.connect.sdk.op.OIDCProviderMetadata;
-import com.nimbusds.openid.connect.sdk.token.OIDCTokens;
 
+import mx.nic.rdap.auth.openidc.Configuration;
 import mx.nic.rdap.auth.openidc.protocol.Core;
 import mx.nic.rdap.auth.openidc.protocol.Discovery;
 import mx.nic.rdap.auth.openidc.protocol.DynamicClientRegistration;
 import mx.nic.rdap.auth.openidc.shiro.exception.RedirectException;
-import mx.nic.rdap.auth.openidc.shiro.token.AuthResponseToken;
 import mx.nic.rdap.auth.openidc.shiro.token.CustomOIDCToken;
 import mx.nic.rdap.auth.openidc.shiro.token.EndUserToken;
+import mx.nic.rdap.auth.openidc.shiro.token.UserInfoToken;
 
 public class SecurityRealm extends AuthorizingRealm {
 
@@ -43,6 +41,7 @@ public class SecurityRealm extends AuthorizingRealm {
 	protected String clientAccessToken;
 	protected String clientId;
 	protected String clientSecret;
+	protected String clientCallbackURI;
 
 	public SecurityRealm() {
 		super();
@@ -50,10 +49,18 @@ public class SecurityRealm extends AuthorizingRealm {
 	}
 
 	@Override
+	public void onInit() {
+		Configuration.setClientUri(clientUri);
+		Configuration.setClientAccessToken(clientAccessToken);
+		Configuration.setClientId(clientId);
+		Configuration.setClientSecret(clientSecret);
+		Configuration.setClientCallbackURI(clientCallbackURI);
+	}
+
+	@Override
 	public boolean supports(AuthenticationToken token) {
 		if (token != null) {
-			return token instanceof EndUserToken || token instanceof AuthResponseToken
-					|| token instanceof CustomOIDCToken;
+			return token instanceof EndUserToken || token instanceof UserInfoToken || token instanceof CustomOIDCToken;
 		}
 		return false;
 	}
@@ -75,65 +82,67 @@ public class SecurityRealm extends AuthorizingRealm {
 			DynamicClientRegistration.register(clientUri, clientAccessToken, clientId, clientSecret);
 			String providerURI = Discovery.discoverProvider(userToken.getPrincipal().toString());
 			OIDCProviderMetadata providerMetadata = Discovery.getProviderMetadata(providerURI);
-			String redirectUrl = null;
-			StringBuffer sb = new StringBuffer();
-			if (userToken.getRequest() instanceof HttpServletRequest) {
-				HttpServletRequest request = (HttpServletRequest) userToken.getRequest();
-				sb.append(request.getRequestURL());
-				if (request.getQueryString() != null) {
-					sb.append("?").append(request.getQueryString());
-				}
-				redirectUrl = sb.toString();
-			} else {
-				// FIXME Build it (how?)
-//				ServletRequest request = userToken.getRequest();
-//				sb.append(request.getScheme());
-//				sb.append("://");
-//				sb.append(request.getServerName());
-//				if (request.getServerPort() > 0) {
-//					sb.append(request.getServerPort());
-//				}
-//				// Apparently the path is not available
-//				sb.append();
-			}
-			
-			URI location = Core.getAuthenticationURI(clientId, providerMetadata, redirectUrl);
+			String originUri = getOriginURI(userToken.getRequest());
+			URI location = Core.getAuthenticationURI(clientId, providerMetadata, clientCallbackURI, originUri);
 			logger.log(Level.SEVERE, "Before redirect to " + location.toString());
 			throw new RedirectException(location.toString());
 		}
-		OIDCTokens tokens = null;
-		if (token instanceof AuthResponseToken) {
-			logger.log(Level.SEVERE, "At AuthResponseToken");
-			AuthResponseToken authToken = (AuthResponseToken) token;
-			if (authToken.getPrincipal() == null) {
-				throw new AuthenticationException("Unexpected error, try again");
-			}
-			AuthorizationCode authCode = Core.parseAuthorizationCode((AuthenticationResponse) authToken.getPrincipal());
-			if (authCode != null) {
-				OIDCTokenResponse tokenResponse = Core.doTokenRequest(clientId, clientSecret, authCode);
-				tokens = tokenResponse.getOIDCTokens();
-			}
-		}
 		UserInfo userInfo = null;
-		if (token instanceof CustomOIDCToken) {
-			logger.log(Level.SEVERE, "At CustomOIDCToken");
-			CustomOIDCToken customToken = (CustomOIDCToken) token;
-			tokens = (OIDCTokens) customToken.getPrincipal();
-		}
-		if (tokens != null) {
-			// From 3.1.3.5 to 3.1.3.6
-			IDTokenClaimsSet tokensClaimSet = Core.verifyToken(clientId, tokens);
-			if (tokensClaimSet != null) {
-				// FIXME Somthing went wrong, do something
-			}
-			userInfo = Core.getUserInfo(tokens);
+		if (token instanceof UserInfoToken) {
+			userInfo = (UserInfo) token.getPrincipal();
 		}
 		if (userInfo == null) {
 			throw new IncorrectCredentialsException("Failed login");
 		}
+
 		AuthenticationInfo authInfo = new SimpleAuthenticationInfo(userInfo.getSubject().getValue(), userInfo,
 				getName());
 		return authInfo;
+	}
+
+	private String getOriginURI(ServletRequest request) {
+		StringBuffer sb = new StringBuffer();
+		if (request instanceof HttpServletRequest) {
+			HttpServletRequest httpRequest = (HttpServletRequest) request;
+			String requestURI = httpRequest.getRequestURI();
+			String contextPath = httpRequest.getContextPath();
+			if (!contextPath.isEmpty()) {
+				sb.append(requestURI.substring(contextPath.length()));
+			} else {
+				sb.append(requestURI);
+			}
+			if (httpRequest.getQueryString() != null) {
+				// Remove the "id" parameter
+				Map<String, String[]> cleanMap = new HashMap<String, String[]>();
+				for (String key : httpRequest.getParameterMap().keySet()) {
+					if (!key.equals(IdentifierFilter.ID_PARAM)) {
+						cleanMap.put(key, httpRequest.getParameterMap().get(key));
+					}
+				}
+				sb.append("?");
+				cleanMap.forEach((k, v) -> {
+					for (String value : v) {
+						sb.append(k);
+						sb.append("=");
+						sb.append(value);
+						sb.append("&");
+					}
+				});
+				sb.deleteCharAt(sb.length() - 1);
+			}
+		} else {
+			// FIXME Build it (how?)
+			// ServletRequest request = userToken.getRequest();
+			// sb.append(request.getScheme());
+			// sb.append("://");
+			// sb.append(request.getServerName());
+			// if (request.getServerPort() > 0) {
+			// sb.append(request.getServerPort());
+			// }
+			// // Apparently the path is not available
+			// sb.append();
+		}
+		return sb.toString();
 	}
 
 	public String getClientUri() {
@@ -166,6 +175,14 @@ public class SecurityRealm extends AuthorizingRealm {
 
 	public void setClientSecret(String clientSecret) {
 		this.clientSecret = clientSecret;
+	}
+
+	public String getClientCallbackURI() {
+		return clientSecret;
+	}
+
+	public void setClientCallbackURI(String clientCallbackURI) {
+		this.clientCallbackURI = clientCallbackURI;
 	}
 
 }
