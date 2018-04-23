@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URL;
+import java.util.Collection;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -39,9 +40,10 @@ import com.nimbusds.openid.connect.sdk.UserInfoRequest;
 import com.nimbusds.openid.connect.sdk.UserInfoResponse;
 import com.nimbusds.openid.connect.sdk.claims.IDTokenClaimsSet;
 import com.nimbusds.openid.connect.sdk.claims.UserInfo;
-import com.nimbusds.openid.connect.sdk.op.OIDCProviderMetadata;
 import com.nimbusds.openid.connect.sdk.token.OIDCTokens;
 import com.nimbusds.openid.connect.sdk.validators.IDTokenValidator;
+
+import mx.nic.rdap.auth.openidc.OpenIDCProvider;
 
 public class Core {
 
@@ -51,21 +53,16 @@ public class Core {
 		// Empty
 	}
 	
-	public static URI getAuthenticationURI(String client, OIDCProviderMetadata providerMetadata, String redirectURI,
-			String originURI) {
-		ClientID clientID = new ClientID(client);
-		// URI authorizationEndpoint =
-		// URI.create("https://accounts.google.com/o/oauth2/v2/auth");
-		URI authorizationEndpoint = providerMetadata.getAuthorizationEndpointURI();
-		// FIXME CLEAN ME please!!
-		// URI authorizationEndpoint = URI.create("https://demo.c2id.com/c2id-login");
-		// URI clientRedirect =
-		// URI.create("http://localhost:8080/rdap-server/domain/domain13.org");
-		URI clientRedirect = URI.create(redirectURI);
+	public static URI getAuthenticationURI(OpenIDCProvider provider,
+			Collection<String> scopeCollection, String originURI) {
+		ClientID clientID = new ClientID(provider.getId());
+		URI authorizationEndpoint = provider.getMetadata().getAuthorizationEndpointURI();
+		URI clientRedirect = URI.create(provider.getCallbackURI());
+		Scope scope = Scope.parse(scopeCollection);
 		State state = new State(Base64.encode(originURI).toString());
 		Nonce nonce = new Nonce();
 		AuthenticationRequest req = new AuthenticationRequest(authorizationEndpoint,
-				new ResponseType(ResponseType.Value.CODE), Scope.parse("openid email profile"), clientID,
+				new ResponseType(ResponseType.Value.CODE), scope, clientID,
 				clientRedirect, state, nonce);
 		return req.toURI();
 	}
@@ -89,22 +86,15 @@ public class Core {
 		}
 		AuthenticationSuccessResponse successResponse = (AuthenticationSuccessResponse) response;
 		AuthorizationCode code = successResponse.getAuthorizationCode();
-		// FIXME The state isn't remembered, find another way to valide it
-		//if (!successResponse.getState().equals(state)) {
-		//	logger.log(Level.SEVERE, "STATE ERROR - " + successResponse.getState() + " != " + state);
-		//	return null;
-		//}
 		logger.log(Level.SEVERE, "RESP - " + successResponse.toString() + " - " + code);
 		return code;
 	}
 	
-	public static OIDCTokenResponse doTokenRequest(String clientID, String clientSecret, AuthorizationCode code) {
-		ClientID client = new ClientID(clientID);
-		Secret secret = new Secret(clientSecret);
-		URI tokenEndpoint = URI.create("https://www.googleapis.com/oauth2/v4/token");
-		//URI tokenEndpoint = URI.create("https://demo.c2id.com/c2id/token");
-		//URI clientRedirect = URI.create("http://localhost:8080/rdap-server/domain/domain13.org");
-		URI clientRedirect = URI.create("http://localhost:8080/rdap-server/oidcverify");
+	public static OIDCTokenResponse doTokenRequest(OpenIDCProvider provider, AuthorizationCode code) {
+		ClientID client = new ClientID(provider.getId());
+		Secret secret = new Secret(provider.getSecret());
+		URI tokenEndpoint = provider.getMetadata().getTokenEndpointURI();
+		URI clientRedirect = URI.create(provider.getCallbackURI());
 		
 		ClientSecretBasic clientSecretBasic = new ClientSecretBasic(client, secret);
 		AuthorizationCodeGrant authCodeGrant = new AuthorizationCodeGrant(code, clientRedirect);
@@ -130,24 +120,19 @@ public class Core {
 			return null;
 		}
 		OIDCTokenResponse accessTokenResponse = (OIDCTokenResponse) tokenResponse.toSuccessResponse();
-
-		accessTokenResponse.getOIDCTokens().getIDToken();
-		accessTokenResponse.getOIDCTokens().getAccessToken();
-		accessTokenResponse.getOIDCTokens().getRefreshToken();
 		return accessTokenResponse;
 	}
 	
-	public static IDTokenClaimsSet verifyToken(String clientID, OIDCTokens tokens) {
-		ClientID client = new ClientID(clientID);
-		Issuer issuer = new Issuer("https://accounts.google.com");
+	public static IDTokenClaimsSet verifyToken(OpenIDCProvider provider, OIDCTokens tokens) {
+		ClientID client = new ClientID(provider.getId());
+		Issuer issuer = provider.getMetadata().getIssuer();
 		JWSAlgorithm jwsAlg = JWSAlgorithm.RS256;
 		URL jwkSetURL = null;
 		try {
-			jwkSetURL = new URL("https://www.googleapis.com/oauth2/v3/certs/");
-		} catch (MalformedURLException e) {
+			jwkSetURL = provider.getMetadata().getJWKSetURI().toURL();
+		} catch (MalformedURLException e1) {
 			// TODO Auto-generated catch block
-			e.printStackTrace();
-			return null;
+			e1.printStackTrace();
 		}
 		IDTokenValidator validator = new IDTokenValidator(issuer, client, jwsAlg, jwkSetURL);
 
@@ -161,11 +146,11 @@ public class Core {
 		}
 
 		logger.log(Level.SEVERE, "Logged in user " + claims.getSubject() + " - " + claims.toJSONObject().toJSONString());
-		return null;
+		return claims;
 	}
 	
-	public static UserInfo getUserInfo(OIDCTokens tokens) {
-		URI userInfoEndpoint = URI.create("https://www.googleapis.com/oauth2/v3/userinfo");
+	public static UserInfo getUserInfo(OpenIDCProvider provider, OIDCTokens tokens) {
+		URI userInfoEndpoint = provider.getMetadata().getUserInfoEndpointURI();
 		UserInfoRequest userInfoReq = new UserInfoRequest(userInfoEndpoint, tokens.getBearerAccessToken());
 		HTTPResponse httpResponse = null;
 		try {

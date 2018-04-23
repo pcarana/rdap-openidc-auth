@@ -1,9 +1,10 @@
 package mx.nic.rdap.auth.openidc.shiro;
 
 import java.net.URI;
-import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -25,9 +26,9 @@ import com.nimbusds.openid.connect.sdk.claims.UserInfo;
 import com.nimbusds.openid.connect.sdk.op.OIDCProviderMetadata;
 
 import mx.nic.rdap.auth.openidc.Configuration;
+import mx.nic.rdap.auth.openidc.OpenIDCProvider;
 import mx.nic.rdap.auth.openidc.protocol.Core;
 import mx.nic.rdap.auth.openidc.protocol.Discovery;
-import mx.nic.rdap.auth.openidc.protocol.DynamicClientRegistration;
 import mx.nic.rdap.auth.openidc.shiro.exception.RedirectException;
 import mx.nic.rdap.auth.openidc.shiro.token.CustomOIDCToken;
 import mx.nic.rdap.auth.openidc.shiro.token.EndUserToken;
@@ -37,11 +38,12 @@ public class SecurityRealm extends AuthorizingRealm {
 
 	private static Logger logger = Logger.getLogger(SecurityRealm.class.getName());
 
-	protected String clientUri;
-	protected String clientAccessToken;
+	private static final String PURPOSE_CLAIM = "purpose";
+	
 	protected String clientId;
 	protected String clientSecret;
 	protected String clientCallbackURI;
+	protected String providerURI;
 
 	public SecurityRealm() {
 		super();
@@ -50,11 +52,8 @@ public class SecurityRealm extends AuthorizingRealm {
 
 	@Override
 	public void onInit() {
-		Configuration.setClientUri(clientUri);
-		Configuration.setClientAccessToken(clientAccessToken);
-		Configuration.setClientId(clientId);
-		Configuration.setClientSecret(clientSecret);
-		Configuration.setClientCallbackURI(clientCallbackURI);
+		OpenIDCProvider provider = new OpenIDCProvider(clientId, clientSecret, clientCallbackURI, providerURI);
+		Configuration.setProvider(provider);
 	}
 
 	@Override
@@ -67,9 +66,12 @@ public class SecurityRealm extends AuthorizingRealm {
 
 	@Override
 	protected AuthorizationInfo doGetAuthorizationInfo(PrincipalCollection principals) {
-		// TODO Auto-generated method stub
-		SimpleAuthorizationInfo info = new SimpleAuthorizationInfo(Collections.emptySet());
-		info.setStringPermissions(null);
+		UserInfo userInfo = (UserInfo) principals.getPrimaryPrincipal();
+		Set<String> roles = new HashSet<String>();
+		if (userInfo.getClaim(PURPOSE_CLAIM) != null) {
+			roles.add(userInfo.getStringClaim(PURPOSE_CLAIM));
+		}
+		SimpleAuthorizationInfo info = new SimpleAuthorizationInfo(roles);
 		return info;
 	}
 
@@ -79,23 +81,40 @@ public class SecurityRealm extends AuthorizingRealm {
 		if (token instanceof EndUserToken) {
 			// From 3.1.3 to 3.1.3.3
 			EndUserToken userToken = (EndUserToken) token;
-			DynamicClientRegistration.register(clientUri, clientAccessToken, clientId, clientSecret);
+			//DynamicClientRegistration.register(clientUri, clientAccessToken, clientId, clientSecret);
 			String providerURI = Discovery.discoverProvider(userToken.getPrincipal().toString());
-			OIDCProviderMetadata providerMetadata = Discovery.getProviderMetadata(providerURI);
+			OpenIDCProvider provider = Configuration.getProvider();
+			if (provider.getMetadata() == null) {
+				OIDCProviderMetadata metadata = Discovery.getProviderMetadata(providerURI);
+				provider.setMetadata(metadata);
+			}
+			// TODO Handle multiple providers
+//			OpenIDCProvider provider = Configuration.getProvidersMap().get(providerURI);
+//			if (provider == null) {
+//				OIDCProviderMetadata metadata = Discovery.getProviderMetadata(providerURI);
+//				Configuration.addProvider(providerURI, clientId, clientSecret, clientCallbackURI, metadata);
+//			}
 			String originUri = getOriginURI(userToken.getRequest());
-			URI location = Core.getAuthenticationURI(clientId, providerMetadata, clientCallbackURI, originUri);
+			Set<String> scope = new HashSet<String>();
+			scope.add("openid");
+			//scope.add("purpose");
+			scope.add("email");
+			URI location = Core.getAuthenticationURI(provider, scope, originUri);
 			logger.log(Level.SEVERE, "Before redirect to " + location.toString());
 			throw new RedirectException(location.toString());
 		}
-		UserInfo userInfo = null;
-		if (token instanceof UserInfoToken) {
-			userInfo = (UserInfo) token.getPrincipal();
-		}
-		if (userInfo == null) {
+		if (token.getPrincipal() == null) {
 			throw new IncorrectCredentialsException("Failed login");
 		}
+//		UserInfo userInfo = null;
+//		if (token instanceof UserInfoToken) {
+//			userInfo = (UserInfo) token.getPrincipal();
+//		}
+//		if (userInfo == null) {
+//			throw new IncorrectCredentialsException("Failed login");
+//		}
 
-		AuthenticationInfo authInfo = new SimpleAuthenticationInfo(userInfo.getSubject().getValue(), userInfo,
+		AuthenticationInfo authInfo = new SimpleAuthenticationInfo(token.getPrincipal(), token.getCredentials(),
 				getName());
 		return authInfo;
 	}
@@ -145,22 +164,6 @@ public class SecurityRealm extends AuthorizingRealm {
 		return sb.toString();
 	}
 
-	public String getClientUri() {
-		return clientUri;
-	}
-
-	public void setClientUri(String clientUri) {
-		this.clientUri = clientUri;
-	}
-
-	public String getClientAccessToken() {
-		return clientAccessToken;
-	}
-
-	public void setClientAccessToken(String clientAccessToken) {
-		this.clientAccessToken = clientAccessToken;
-	}
-
 	public String getClientId() {
 		return clientId;
 	}
@@ -183,6 +186,14 @@ public class SecurityRealm extends AuthorizingRealm {
 
 	public void setClientCallbackURI(String clientCallbackURI) {
 		this.clientCallbackURI = clientCallbackURI;
+	}
+
+	public String getProviderURI() {
+		return providerURI;
+	}
+
+	public void setProviderURI(String providerURI) {
+		this.providerURI = providerURI;
 	}
 
 }

@@ -40,8 +40,7 @@ public class Authentication {
 		}
 		AuthorizationCode authCode = Core.parseAuthorizationCode(authResponse);
 		if (authCode != null) {
-			OIDCTokenResponse tokenResponse = Core.doTokenRequest(Configuration.getClientId(),
-					Configuration.getClientSecret(), authCode);
+			OIDCTokenResponse tokenResponse = Core.doTokenRequest(Configuration.getProvider(), authCode);
 			tokens = tokenResponse.getOIDCTokens();
 		}
 		if (tokens == null) {
@@ -59,11 +58,11 @@ public class Authentication {
 		// }
 		// From 3.1.3.5 to 3.1.3.6
 		UserInfo userInfo = null;
-		IDTokenClaimsSet tokensClaimSet = Core.verifyToken(Configuration.getClientId(), tokens);
-		if (tokensClaimSet != null) {
-			// FIXME Somthing went wrong, do something
+		IDTokenClaimsSet tokensClaimSet = Core.verifyToken(Configuration.getProvider(), tokens);
+		if (tokensClaimSet == null) {
+			// FIXME Something went wrong, do something
 		}
-		userInfo = Core.getUserInfo(tokens);
+		userInfo = Core.getUserInfo(Configuration.getProvider(), tokens);
 		if (userInfo == null) {
 			throw new Exception("UserInfo null");
 		}

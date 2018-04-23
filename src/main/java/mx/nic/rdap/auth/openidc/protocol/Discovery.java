@@ -8,6 +8,8 @@ import com.nimbusds.oauth2.sdk.id.Issuer;
 import com.nimbusds.openid.connect.sdk.op.OIDCProviderConfigurationRequest;
 import com.nimbusds.openid.connect.sdk.op.OIDCProviderMetadata;
 
+import mx.nic.rdap.auth.openidc.Configuration;
+
 public class Discovery {
 
 	private Discovery() {
@@ -15,8 +17,8 @@ public class Discovery {
 	}
 	
 	public static String discoverProvider(String userId) {
-		// FIXME TODO Not implemented by the library
-		String providerUri = "https://accounts.google.com/";
+		// FIXME Not implemented by the library, use manually configured URI
+		String providerUri = Configuration.getProvider().getProviderURI();
 		return providerUri;
 	}
 	
