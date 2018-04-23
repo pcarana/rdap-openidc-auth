@@ -11,7 +11,6 @@ import javax.servlet.ServletRequest;
 import javax.servlet.http.HttpServletRequest;
 
 import com.nimbusds.oauth2.sdk.AuthorizationCode;
-import com.nimbusds.openid.connect.sdk.claims.IDTokenClaimsSet;
 import com.nimbusds.openid.connect.sdk.claims.UserInfo;
 import com.nimbusds.openid.connect.sdk.op.OIDCProviderMetadata;
 import com.nimbusds.openid.connect.sdk.token.OIDCTokens;
@@ -89,6 +88,8 @@ public class AuthenticationFlow {
 	}
 	
 	/**
+	 * Get the UserInfo based on the tokens (these are validated first at the OP)
+	 * 
 	 * @param tokens
 	 * @return
 	 * @throws Exception
@@ -100,16 +101,8 @@ public class AuthenticationFlow {
 		// tokens = (OIDCTokens) customToken.getPrincipal();
 		// }
 		// From 3.1.3.5 to 3.1.3.6
-		UserInfo userInfo = null;
-		IDTokenClaimsSet tokensClaimSet = Core.verifyToken(Configuration.getProvider(), tokens);
-		if (tokensClaimSet == null) {
-			// FIXME Something went wrong, do something
-		}
-		userInfo = Core.getUserInfo(Configuration.getProvider(), tokens);
-		if (userInfo == null) {
-			throw new ResponseException("Null UserInfo");
-		}
-		return userInfo;
+		Core.verifyToken(Configuration.getProvider(), tokens);
+		return Core.getUserInfo(Configuration.getProvider(), tokens);
 	}
 	
 	public static Set<String> getPurposeAsRoles(UserInfo userInfo) {
@@ -122,6 +115,7 @@ public class AuthenticationFlow {
 
 	/**
 	 * Returns the original URI from a ServletRequest
+	 * 
 	 * @param request
 	 * @return
 	 */

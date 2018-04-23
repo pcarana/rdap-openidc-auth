@@ -37,9 +37,10 @@ import com.nimbusds.openid.connect.sdk.AuthenticationSuccessResponse;
 import com.nimbusds.openid.connect.sdk.Nonce;
 import com.nimbusds.openid.connect.sdk.OIDCTokenResponse;
 import com.nimbusds.openid.connect.sdk.OIDCTokenResponseParser;
+import com.nimbusds.openid.connect.sdk.UserInfoErrorResponse;
 import com.nimbusds.openid.connect.sdk.UserInfoRequest;
 import com.nimbusds.openid.connect.sdk.UserInfoResponse;
-import com.nimbusds.openid.connect.sdk.claims.IDTokenClaimsSet;
+import com.nimbusds.openid.connect.sdk.UserInfoSuccessResponse;
 import com.nimbusds.openid.connect.sdk.claims.UserInfo;
 import com.nimbusds.openid.connect.sdk.token.OIDCTokens;
 import com.nimbusds.openid.connect.sdk.validators.IDTokenValidator;
@@ -170,57 +171,85 @@ public class Core {
 		return tokens;
 	}
 	
-	public static IDTokenClaimsSet verifyToken(OpenIDCProvider provider, OIDCTokens tokens) {
+	/**
+	 * Verify the tokens at the OP. If the response has the UserInfo, then it's returned, otherwise a null value is returned.
+	 * 
+	 * @param provider
+	 * @param tokens
+	 * @return
+	 * @throws RequestException 
+	 */
+	public static void verifyToken(OpenIDCProvider provider, OIDCTokens tokens) throws ResponseException, RequestException {
 		ClientID client = new ClientID(provider.getId());
 		Issuer issuer = provider.getMetadata().getIssuer();
+		// Use recommended algorithm
 		JWSAlgorithm jwsAlg = JWSAlgorithm.RS256;
 		URL jwkSetURL = null;
 		try {
 			jwkSetURL = provider.getMetadata().getJWKSetURI().toURL();
-		} catch (MalformedURLException e1) {
-			// TODO Auto-generated catch block
-			e1.printStackTrace();
+		} catch (MalformedURLException e) {
+			logger.log(Level.SEVERE, e.getMessage(), e);
+			throw new RequestException(e.getMessage(), e);
 		}
+
 		IDTokenValidator validator = new IDTokenValidator(issuer, client, jwsAlg, jwkSetURL);
-
 		JWT idToken = tokens.getIDToken();
-		IDTokenClaimsSet claims = null;
 		try {
-			claims = validator.validate(idToken, null);
-		} catch (BadJOSEException | JOSEException e) {
-			e.printStackTrace();
-			return null;
+			validator.validate(idToken, null);
+			// TODO Verify that the validation doesn't return Claims,
+			// otherwise the UserInfo will be null
+		} catch (BadJOSEException e) {
+			logger.log(Level.SEVERE, e.getMessage(), e);
+			throw new ResponseException(e.getMessage(), e);
+		} catch (JOSEException e) {
+			logger.log(Level.SEVERE, e.getMessage(), e);
+			throw new RequestException(e.getMessage(), e);
 		}
-
-		logger.log(Level.SEVERE, "Logged in user " + claims.getSubject() + " - " + claims.toJSONObject().toJSONString());
-		return claims;
 	}
 	
-	public static UserInfo getUserInfo(OpenIDCProvider provider, OIDCTokens tokens) {
+	/**
+	 * Get the UserInfo using the specified tokens
+	 * 
+	 * @param provider
+	 * @param tokens
+	 * @return
+	 */
+	public static UserInfo getUserInfo(OpenIDCProvider provider, OIDCTokens tokens) throws RequestException, ResponseException {
 		URI userInfoEndpoint = provider.getMetadata().getUserInfoEndpointURI();
 		UserInfoRequest userInfoReq = new UserInfoRequest(userInfoEndpoint, tokens.getBearerAccessToken());
 		HTTPResponse httpResponse = null;
 		try {
 			httpResponse = userInfoReq.toHTTPRequest().send();
-		} catch(IOException e) {
-			e.printStackTrace();
-			return null;
+		} catch (IOException e) {
+			logger.log(Level.SEVERE, e.getMessage(), e);
+			throw new RequestException(e.getMessage(), e);
 		}
 		UserInfoResponse userInfoResponse = null;
 		try {
 			userInfoResponse = UserInfoResponse.parse(httpResponse);
 		} catch (ParseException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-			return null;
-		}
-		if (!userInfoResponse.indicatesSuccess()) {
-			logger.log(Level.SEVERE, "ERR User resp - " + userInfoResponse.toErrorResponse().getErrorObject());
-			return null;
+			logger.log(Level.SEVERE, e.getMessage(), e);
+			throw new ResponseException(e.getMessage(), e);
 		}
 		
-		UserInfo userInfo = userInfoResponse.toSuccessResponse().getUserInfo();
-		logger.log(Level.SEVERE, "UserInfo = " + userInfo.toJSONObject().toJSONString());
+		if (!userInfoResponse.indicatesSuccess()) {
+			String message = null;
+			if (userInfoResponse instanceof UserInfoErrorResponse) {
+				UserInfoErrorResponse errorResponse = (UserInfoErrorResponse) userInfoResponse;
+				ErrorObject errorObj = errorResponse.getErrorObject();
+				message = "Response error at userInfo response: HTTP Code " + errorObj.getCode() + " - " + errorObj.getDescription();
+			} else {
+				message = "Response error at userInfo response: HTTP Code " + httpResponse.getStatusCode() + " - " + httpResponse.getContent();
+			}
+			logger.log(Level.SEVERE, message);
+			throw new ResponseException(message);
+		}
+		
+		UserInfoSuccessResponse userInfoSuccessResponse = userInfoResponse.toSuccessResponse();
+		UserInfo userInfo = userInfoSuccessResponse.getUserInfo();
+		if (userInfo == null) {
+			throw new ResponseException("Null userInfo");
+		}
 		return userInfo;
 	}
 
