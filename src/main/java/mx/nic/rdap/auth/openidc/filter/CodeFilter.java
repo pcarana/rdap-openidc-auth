@@ -13,7 +13,7 @@ import javax.servlet.http.HttpServletRequest;
 import com.nimbusds.jose.util.Base64;
 import com.nimbusds.openid.connect.sdk.claims.UserInfo;
 
-import mx.nic.rdap.auth.openidc.Authentication;
+import mx.nic.rdap.auth.openidc.AuthenticationFlow;
 import mx.nic.rdap.auth.openidc.Configuration;
 
 public class CodeFilter implements Filter {
@@ -45,7 +45,7 @@ public class CodeFilter implements Filter {
 			}
 			UserInfo userInfo = null;
 			try {
-				userInfo = Authentication.validateAuthCode(httpRequest.getQueryString());
+				userInfo = AuthenticationFlow.validateAuthCode(httpRequest.getQueryString());
 			} catch (Exception e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
