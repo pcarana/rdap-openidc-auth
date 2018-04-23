@@ -20,6 +20,8 @@ import com.nimbusds.openid.connect.sdk.claims.UserInfo;
 import mx.nic.rdap.auth.openidc.AuthenticationFlow;
 import mx.nic.rdap.auth.openidc.Configuration;
 import mx.nic.rdap.auth.openidc.OpenIDCProvider;
+import mx.nic.rdap.auth.openidc.exception.RequestException;
+import mx.nic.rdap.auth.openidc.exception.ResponseException;
 import mx.nic.rdap.auth.openidc.shiro.exception.RedirectException;
 import mx.nic.rdap.auth.openidc.shiro.token.CustomOIDCToken;
 import mx.nic.rdap.auth.openidc.shiro.token.EndUserToken;
@@ -64,14 +66,21 @@ public class SecurityRealm extends AuthorizingRealm {
 	@Override
 	protected AuthenticationInfo doGetAuthenticationInfo(AuthenticationToken token) throws AuthenticationException {
 		logger.log(Level.SEVERE, "At doGetAuthenticationInfo" + token.toString());
+		// Redirect to OP login when an end user token is received
 		if (token instanceof EndUserToken) {
 			// From 3.1.3 to 3.1.3.3
 			EndUserToken userToken = (EndUserToken) token;
 			OpenIDCProvider provider = Configuration.getProvider();
-			AuthenticationFlow.updateProviderMetadata(userToken.getPrincipal().toString(), provider);
+			try {
+				AuthenticationFlow.updateProviderMetadata(userToken.getPrincipal().toString(), provider);
+			} catch (RequestException | ResponseException e) {
+				throw new AuthenticationException(e.getMessage(), e);
+			}
 			String location = AuthenticationFlow.getAuthenticationLocation(userToken.getRequest(), provider);
 			throw new RedirectException(location);
 		}
+		
+		// If there's no principal, then something went wrong authenticating it
 		if (token.getPrincipal() == null) {
 			throw new IncorrectCredentialsException("Failed login");
 		}

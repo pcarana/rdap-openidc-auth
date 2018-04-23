@@ -21,6 +21,8 @@ import com.nimbusds.openid.connect.sdk.claims.UserInfo;
 import com.nimbusds.openid.connect.sdk.op.OIDCProviderMetadata;
 import com.nimbusds.openid.connect.sdk.token.OIDCTokens;
 
+import mx.nic.rdap.auth.openidc.exception.RequestException;
+import mx.nic.rdap.auth.openidc.exception.ResponseException;
 import mx.nic.rdap.auth.openidc.protocol.Core;
 import mx.nic.rdap.auth.openidc.protocol.Discovery;
 import mx.nic.rdap.auth.openidc.shiro.IdentifierFilter;
@@ -35,18 +37,14 @@ public class AuthenticationFlow {
 		// Empty
 	}
 
-	public static void updateProviderMetadata(String userId, OpenIDCProvider provider) {
+	public static void updateProviderMetadata(String userId, OpenIDCProvider provider)
+			throws RequestException, ResponseException {
 		String providerURI = Discovery.discoverProvider(userId);
 		if (provider.getMetadata() == null) {
 			OIDCProviderMetadata metadata = Discovery.getProviderMetadata(providerURI);
 			provider.setMetadata(metadata);
 		}
 		// TODO Handle multiple providers
-//		OpenIDCProvider provider = Configuration.getProvidersMap().get(providerURI);
-//		if (provider == null) {
-//			OIDCProviderMetadata metadata = Discovery.getProviderMetadata(providerURI);
-//			Configuration.addProvider(providerURI, clientId, clientSecret, clientCallbackURI, metadata);
-//		}
 	}
 	
 	public static String getAuthenticationLocation(ServletRequest request, OpenIDCProvider provider) {
@@ -62,7 +60,7 @@ public class AuthenticationFlow {
 		return location.toString();
 	}
 
-	public static UserInfo validateAuthCode(String requestQuery) throws Exception {
+	public static UserInfo getUserInfoFromAuthCode(String requestQuery) throws Exception {
 		OIDCTokens tokens = null;
 		logger.log(Level.SEVERE, "At AuthResponseToken");
 		AuthenticationResponse authResponse = null;
@@ -85,11 +83,11 @@ public class AuthenticationFlow {
 		if (tokens == null) {
 			throw new Exception("Tokens null");
 		}
-		return getUserInfo(tokens);
+		return getUserInfoFromToken(tokens);
 		
 	}
 	
-	public static UserInfo getUserInfo(OIDCTokens tokens) throws Exception {
+	public static UserInfo getUserInfoFromToken(OIDCTokens tokens) throws Exception {
 		// if (token instanceof CustomOIDCToken) {
 		// logger.log(Level.SEVERE, "At CustomOIDCToken");
 		// CustomOIDCToken customToken = (CustomOIDCToken) token;

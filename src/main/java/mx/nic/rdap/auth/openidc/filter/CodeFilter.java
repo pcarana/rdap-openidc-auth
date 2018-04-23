@@ -45,7 +45,7 @@ public class CodeFilter implements Filter {
 			}
 			UserInfo userInfo = null;
 			try {
-				userInfo = AuthenticationFlow.validateAuthCode(httpRequest.getQueryString());
+				userInfo = AuthenticationFlow.getUserInfoFromAuthCode(httpRequest.getQueryString());
 			} catch (Exception e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
