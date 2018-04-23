@@ -30,6 +30,10 @@ public class CodeFilter implements Filter {
 	public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
 			throws IOException, ServletException {
 		// Get the request, the state MUST be present to forward the request
+		if (request.getParameter(STATE_PARAM) == null) {
+			chain.doFilter(request, response);
+			return;
+		}
 		if (request instanceof HttpServletRequest) {
 			HttpServletRequest httpRequest = (HttpServletRequest) request;
 			String forwardURI = null;

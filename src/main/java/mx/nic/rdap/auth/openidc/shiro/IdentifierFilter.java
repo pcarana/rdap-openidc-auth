@@ -34,6 +34,7 @@ public class IdentifierFilter extends AuthenticatingFilter {
 		if (request.getParameter(ID_PARAM) != null) {
 			return new EndUserToken(request.getParameter(ID_PARAM).trim(), request);
 		}
+		// TODO The issuer MAY be obtained from the referer, just to know where to validate tokens
 		if (request.getAttribute(Configuration.USER_INFO_ATTR) != null) {
 			return new UserInfoToken(request);
 		}
@@ -78,10 +79,7 @@ public class IdentifierFilter extends AuthenticatingFilter {
 					&& (accessTokenValue != null && accessTokenValue.length == 1
 							&& !accessTokenValue[0].trim().isEmpty());
 		}
-		if (request.getAttribute(Configuration.USER_INFO_ATTR) != null) {
-			return true;
-		}
-		return false;
+		return request.getAttribute(Configuration.USER_INFO_ATTR) != null;
 	}
 
 	protected boolean onLoginFailure(AuthenticationToken token, AuthenticationException e, ServletRequest request,
