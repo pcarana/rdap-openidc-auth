@@ -1,8 +1,6 @@
 package mx.nic.rdap.auth.openidc.shiro;
 
 import java.util.Set;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 import org.apache.shiro.authc.AuthenticationException;
 import org.apache.shiro.authc.AuthenticationInfo;
@@ -28,8 +26,6 @@ import mx.nic.rdap.auth.openidc.shiro.token.EndUserToken;
 import mx.nic.rdap.auth.openidc.shiro.token.UserInfoToken;
 
 public class SecurityRealm extends AuthorizingRealm {
-
-	private static Logger logger = Logger.getLogger(SecurityRealm.class.getName());
 	
 	protected String clientId;
 	protected String clientSecret;
@@ -65,7 +61,6 @@ public class SecurityRealm extends AuthorizingRealm {
 
 	@Override
 	protected AuthenticationInfo doGetAuthenticationInfo(AuthenticationToken token) throws AuthenticationException {
-		logger.log(Level.SEVERE, "At doGetAuthenticationInfo" + token.toString());
 		// Redirect to OP login when an end user token is received
 		if (token instanceof EndUserToken) {
 			// From 3.1.3 to 3.1.3.3

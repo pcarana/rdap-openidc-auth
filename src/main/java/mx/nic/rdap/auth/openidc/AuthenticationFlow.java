@@ -5,17 +5,12 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import javax.servlet.ServletRequest;
 import javax.servlet.http.HttpServletRequest;
 
 import com.nimbusds.oauth2.sdk.AuthorizationCode;
-import com.nimbusds.oauth2.sdk.ParseException;
-import com.nimbusds.openid.connect.sdk.AuthenticationResponse;
-import com.nimbusds.openid.connect.sdk.AuthenticationResponseParser;
-import com.nimbusds.openid.connect.sdk.OIDCTokenResponse;
 import com.nimbusds.openid.connect.sdk.claims.IDTokenClaimsSet;
 import com.nimbusds.openid.connect.sdk.claims.UserInfo;
 import com.nimbusds.openid.connect.sdk.op.OIDCProviderMetadata;
@@ -29,6 +24,9 @@ import mx.nic.rdap.auth.openidc.shiro.IdentifierFilter;
 
 public class AuthenticationFlow {
 
+	/**
+	 * ID used to get the "purpose" claims
+	 */
 	private static final String PURPOSE_CLAIM = "purpose";
 	
 	public static Logger logger = Logger.getLogger(AuthenticationFlow.class.getName());
@@ -37,6 +35,14 @@ public class AuthenticationFlow {
 		// Empty
 	}
 
+	/**
+	 * Updates an OP provider metadata if it doesn't have any metadata already loaded
+	 * 
+	 * @param userId
+	 * @param provider
+	 * @throws RequestException
+	 * @throws ResponseException
+	 */
 	public static void updateProviderMetadata(String userId, OpenIDCProvider provider)
 			throws RequestException, ResponseException {
 		String providerURI = Discovery.discoverProvider(userId);
@@ -47,8 +53,16 @@ public class AuthenticationFlow {
 		// TODO Handle multiple providers
 	}
 	
+	/**
+	 * Return the location used to redirect the user in order to perform the OP authentication
+	 * 
+	 * @param request
+	 * @param provider
+	 * @return
+	 */
 	public static String getAuthenticationLocation(ServletRequest request, OpenIDCProvider provider) {
 		String originUri = getOriginURI(request);
+		// Required "openid" scope, "purpose" should be supported
 		Set<String> scope = new HashSet<String>();
 		scope.add("openid");
 		scope.add("email");
@@ -56,38 +70,30 @@ public class AuthenticationFlow {
 			scope.add(PURPOSE_CLAIM);
 		}
 		URI location = Core.getAuthenticationURI(provider, scope, originUri);
-		logger.log(Level.SEVERE, "Before redirect to " + location.toString());
 		return location.toString();
 	}
 
-	public static UserInfo getUserInfoFromAuthCode(String requestQuery) throws Exception {
-		OIDCTokens tokens = null;
-		logger.log(Level.SEVERE, "At AuthResponseToken");
-		AuthenticationResponse authResponse = null;
-		try {
-			// Use a relative URI
-			authResponse = AuthenticationResponseParser.parse(URI.create("https:///?".concat(requestQuery)));
-		} catch (ParseException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-		if (authResponse == null) {
-			// FIXME
-			throw new Exception("Unexpected error, try again");
-		}
-		AuthorizationCode authCode = Core.parseAuthorizationCode(authResponse);
-		if (authCode != null) {
-			OIDCTokenResponse tokenResponse = Core.doTokenRequest(Configuration.getProvider(), authCode);
-			tokens = tokenResponse.getOIDCTokens();
-		}
-		if (tokens == null) {
-			throw new Exception("Tokens null");
-		}
+	/**
+	 * Return the UserInfo using the OP's authorization code
+	 * 
+	 * @param requestQuery
+	 * @param provider
+	 * @return
+	 * @throws RequestException
+	 * @throws ResponseException
+	 */
+	public static UserInfo getUserInfoFromAuthCode(String requestQuery, OpenIDCProvider provider) throws RequestException, ResponseException {
+		AuthorizationCode authCode = Core.parseAuthorizationCode(requestQuery);
+		OIDCTokens tokens = Core.getTokensFromAuthCode(provider, authCode);
 		return getUserInfoFromToken(tokens);
-		
 	}
 	
-	public static UserInfo getUserInfoFromToken(OIDCTokens tokens) throws Exception {
+	/**
+	 * @param tokens
+	 * @return
+	 * @throws Exception
+	 */
+	public static UserInfo getUserInfoFromToken(OIDCTokens tokens) throws RequestException, ResponseException {
 		// if (token instanceof CustomOIDCToken) {
 		// logger.log(Level.SEVERE, "At CustomOIDCToken");
 		// CustomOIDCToken customToken = (CustomOIDCToken) token;
@@ -101,7 +107,7 @@ public class AuthenticationFlow {
 		}
 		userInfo = Core.getUserInfo(Configuration.getProvider(), tokens);
 		if (userInfo == null) {
-			throw new Exception("UserInfo null");
+			throw new ResponseException("Null UserInfo");
 		}
 		return userInfo;
 	}
@@ -114,6 +120,11 @@ public class AuthenticationFlow {
 		return roles;
 	}
 
+	/**
+	 * Returns the original URI from a ServletRequest
+	 * @param request
+	 * @return
+	 */
 	private static String getOriginURI(ServletRequest request) {
 		StringBuffer sb = new StringBuffer();
 		if (request instanceof HttpServletRequest) {
@@ -145,7 +156,7 @@ public class AuthenticationFlow {
 				sb.deleteCharAt(sb.length() - 1);
 			}
 		} else {
-			// FIXME Build it (how?)
+			// TODO Build it (how?)
 			// ServletRequest request = userToken.getRequest();
 			// sb.append(request.getScheme());
 			// sb.append("://");
@@ -160,7 +171,6 @@ public class AuthenticationFlow {
 			//}
 			// // Apparently the path is not available
 			// sb.append();
-			
 		}
 		return sb.toString();
 	}

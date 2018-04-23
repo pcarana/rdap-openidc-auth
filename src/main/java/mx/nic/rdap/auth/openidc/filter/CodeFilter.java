@@ -45,10 +45,9 @@ public class CodeFilter implements Filter {
 			}
 			UserInfo userInfo = null;
 			try {
-				userInfo = AuthenticationFlow.getUserInfoFromAuthCode(httpRequest.getQueryString());
+				userInfo = AuthenticationFlow.getUserInfoFromAuthCode(httpRequest.getQueryString(), Configuration.getProvider());
 			} catch (Exception e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
+				// FIXME Translate to HTTP Codes, a 500 isn't too good
 				throw new ServletException(e);
 			}
 			request.setAttribute(Configuration.USER_INFO_ATTR, userInfo);

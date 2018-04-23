@@ -15,6 +15,7 @@ import com.nimbusds.jose.util.Base64;
 import com.nimbusds.jwt.JWT;
 import com.nimbusds.oauth2.sdk.AuthorizationCode;
 import com.nimbusds.oauth2.sdk.AuthorizationCodeGrant;
+import com.nimbusds.oauth2.sdk.ErrorObject;
 import com.nimbusds.oauth2.sdk.ParseException;
 import com.nimbusds.oauth2.sdk.ResponseType;
 import com.nimbusds.oauth2.sdk.Scope;
@@ -44,6 +45,8 @@ import com.nimbusds.openid.connect.sdk.token.OIDCTokens;
 import com.nimbusds.openid.connect.sdk.validators.IDTokenValidator;
 
 import mx.nic.rdap.auth.openidc.OpenIDCProvider;
+import mx.nic.rdap.auth.openidc.exception.RequestException;
+import mx.nic.rdap.auth.openidc.exception.ResponseException;
 
 public class Core {
 
@@ -53,44 +56,77 @@ public class Core {
 		// Empty
 	}
 	
-	public static URI getAuthenticationURI(OpenIDCProvider provider,
-			Collection<String> scopeCollection, String originURI) {
+	/**
+	 * Assemble and return the URI where the end user will provide its credentials.
+	 * Authorization Code Flow used by default.
+	 * 
+	 * @param provider
+	 * @param scopeCollection
+	 * @param originURI
+	 * @return
+	 */
+	public static URI getAuthenticationURI(OpenIDCProvider provider, Collection<String> scopeCollection,
+			String originURI) {
 		ClientID clientID = new ClientID(provider.getId());
 		URI authorizationEndpoint = provider.getMetadata().getAuthorizationEndpointURI();
 		URI clientRedirect = URI.create(provider.getCallbackURI());
 		Scope scope = Scope.parse(scopeCollection);
+		// The origin URI is used as the state to remember from where the request was
+		// made
 		State state = new State(Base64.encode(originURI).toString());
 		Nonce nonce = new Nonce();
 		AuthenticationRequest req = new AuthenticationRequest(authorizationEndpoint,
-				new ResponseType(ResponseType.Value.CODE), scope, clientID,
-				clientRedirect, state, nonce);
+				new ResponseType(ResponseType.Value.CODE), scope, clientID, clientRedirect, state, nonce);
 		return req.toURI();
 	}
 	
-	public static AuthorizationCode parseAuthorizationCode(URI uri) {
-		AuthenticationResponse response = null;
+	/**
+	 * Return the Authorization code based on the query parameters of the request sent by the OP
+	 * 
+	 * @param requestQuery
+	 * @return
+	 */
+	public static AuthorizationCode parseAuthorizationCode(String requestQuery) throws ResponseException {
+		AuthenticationResponse authResponse = null;
 		try {
-			response = AuthenticationResponseParser.parse(uri);
+			// Use a relative URI
+			authResponse = AuthenticationResponseParser.parse(URI.create("https:///?".concat(requestQuery)));
 		} catch (ParseException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-			return null;
+			logger.log(Level.SEVERE, e.getMessage(), e);
+			throw new ResponseException(e.getMessage(), e);
 		}
-		return parseAuthorizationCode(response);
-	}
-	
-	public static AuthorizationCode parseAuthorizationCode(AuthenticationResponse response) {
-		if (response instanceof AuthenticationErrorResponse) {
-			logger.log(Level.SEVERE, "ERROR response AUTH - " + ((AuthenticationErrorResponse) response).getErrorObject());
-			return null;
+		if (!authResponse.indicatesSuccess()) {
+			String message = null;
+			if (authResponse instanceof AuthenticationErrorResponse) {
+				AuthenticationErrorResponse errorResponse = (AuthenticationErrorResponse) authResponse;
+				ErrorObject errorObj = errorResponse.getErrorObject();
+				message = "Response error at authorization code: HTTP Code " + errorObj.getCode() + " - " + errorObj.getDescription();
+			} else {
+				HTTPResponse httpResponse = authResponse.toHTTPResponse();
+				message = "Response error at authorization code: HTTP Code " + httpResponse.getStatusCode() + " - " + httpResponse.getContent();
+			}
+			logger.log(Level.SEVERE, message);
+			throw new ResponseException(message);
 		}
-		AuthenticationSuccessResponse successResponse = (AuthenticationSuccessResponse) response;
+		
+		AuthenticationSuccessResponse successResponse = (AuthenticationSuccessResponse) authResponse;
 		AuthorizationCode code = successResponse.getAuthorizationCode();
-		logger.log(Level.SEVERE, "RESP - " + successResponse.toString() + " - " + code);
+		if (code == null) {
+			throw new ResponseException("Null authorization code");
+		}
 		return code;
 	}
 	
-	public static OIDCTokenResponse doTokenRequest(OpenIDCProvider provider, AuthorizationCode code) {
+	/**
+	 * Get the tokens based on the authorization code sent by the OP
+	 * 
+	 * @param provider
+	 * @param code
+	 * @return
+	 * @throws RequestException 
+	 * @throws ResponseException 
+	 */
+	public static OIDCTokens getTokensFromAuthCode(OpenIDCProvider provider, AuthorizationCode code) throws RequestException, ResponseException {
 		ClientID client = new ClientID(provider.getId());
 		Secret secret = new Secret(provider.getSecret());
 		URI tokenEndpoint = provider.getMetadata().getTokenEndpointURI();
@@ -103,24 +139,35 @@ public class Core {
 		try {
 			httpResponse = tokenReq.toHTTPRequest().send();
 		} catch (SerializeException | IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-			return null;
+			logger.log(Level.SEVERE, e.getMessage(), e);
+			throw new RequestException(e.getMessage(), e);
 		}
+		
 		TokenResponse tokenResponse = null;
 		try {
 			tokenResponse = OIDCTokenResponseParser.parse(httpResponse);
 		} catch (ParseException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-			return null;
+			logger.log(Level.SEVERE, e.getMessage(), e);
+			throw new ResponseException(e.getMessage(), e);
 		}
-		if (tokenResponse instanceof TokenErrorResponse) {
-			logger.log(Level.SEVERE, "ERROR response TOKEN - " + ((TokenErrorResponse) tokenResponse).getErrorObject());
-			return null;
+		if (!tokenResponse.indicatesSuccess()) {
+			String message = null;
+			if (tokenResponse instanceof TokenErrorResponse) {
+				TokenErrorResponse errorResponse = (TokenErrorResponse) tokenResponse;
+				ErrorObject errorObj = errorResponse.getErrorObject();
+				message = "Response error at token response: HTTP Code " + errorObj.getCode() + " - " + errorObj.getDescription();
+			} else {
+				message = "Response error at token response: HTTP Code " + httpResponse.getStatusCode() + " - " + httpResponse.getContent();
+			}
+			logger.log(Level.SEVERE, message);
+			throw new ResponseException(message);
 		}
 		OIDCTokenResponse accessTokenResponse = (OIDCTokenResponse) tokenResponse.toSuccessResponse();
-		return accessTokenResponse;
+		OIDCTokens tokens = accessTokenResponse.getOIDCTokens();
+		if (tokens == null) {
+			throw new ResponseException("Null tokens");
+		}
+		return tokens;
 	}
 	
 	public static IDTokenClaimsSet verifyToken(OpenIDCProvider provider, OIDCTokens tokens) {
