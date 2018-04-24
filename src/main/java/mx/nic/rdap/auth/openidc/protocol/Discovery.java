@@ -13,6 +13,7 @@ import com.nimbusds.openid.connect.sdk.op.OIDCProviderMetadata;
 import mx.nic.rdap.auth.openidc.Configuration;
 import mx.nic.rdap.auth.openidc.exception.RequestException;
 import mx.nic.rdap.auth.openidc.exception.ResponseException;
+import net.minidev.json.JSONObject;
 
 public class Discovery {
 
@@ -50,7 +51,7 @@ public class Discovery {
 		try {
 			httpResponse = request.toHTTPRequest().send();
 		} catch (IOException e) {
-			logger.log(Level.SEVERE, e.getMessage(), e);
+			logger.log(Level.INFO, e.getMessage(), e);
 			throw new RequestException(e.getMessage(), e);
 		}
 		if (!httpResponse.indicatesSuccess()) {
@@ -60,8 +61,18 @@ public class Discovery {
 		try {
 			return OIDCProviderMetadata.parse(httpResponse.getContentAsJSONObject());
 		} catch (ParseException e) {
-			logger.log(Level.SEVERE, e.getMessage(), e);
-			throw new ResponseException(e.getMessage(), e);
+			logger.log(Level.INFO, e.getMessage(), e);
+			// FIXME There's a known issue when parsing Gluu server data, this an ugly patch =/
+			try {
+				JSONObject json = httpResponse.getContentAsJSONObject();
+				json.replace("frontchannel_logout_supported",
+						Boolean.parseBoolean(json.getAsString("frontchannel_logout_supported")));
+				return OIDCProviderMetadata.parse(json);
+			} catch (ParseException e2) {
+				// This will be another unexpected problem
+				logger.log(Level.INFO, e.getMessage(), e);
+				throw new ResponseException(e.getMessage(), e);
+			}
 		}
 	}
 
