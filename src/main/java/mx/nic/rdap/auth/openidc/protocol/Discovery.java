@@ -54,7 +54,7 @@ public class Discovery {
 			throw new RequestException(e.getMessage(), e);
 		}
 		if (!httpResponse.indicatesSuccess()) {
-			throw new ResponseException(
+			throw new ResponseException(httpResponse.getStatusCode(),
 					providerURI.concat(" issuer returned HTTP Code ").concat("" + httpResponse.getStatusCode()));
 		}
 		try {

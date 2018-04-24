@@ -14,6 +14,7 @@ import org.apache.shiro.authc.AuthenticationToken;
 import org.apache.shiro.web.filter.authc.AuthenticatingFilter;
 
 import mx.nic.rdap.auth.openidc.Configuration;
+import mx.nic.rdap.auth.openidc.exception.ResponseException;
 import mx.nic.rdap.auth.openidc.shiro.exception.RedirectException;
 import mx.nic.rdap.auth.openidc.shiro.token.CustomOIDCToken;
 import mx.nic.rdap.auth.openidc.shiro.token.EndUserToken;
@@ -95,7 +96,13 @@ public class IdentifierFilter extends AuthenticatingFilter {
 			}
 			return false;
 		} else {
-			e.printStackTrace();
+			HttpServletResponse httpResponse = (HttpServletResponse) response;
+			if (e.getCause() instanceof ResponseException) {
+				ResponseException resp = (ResponseException) e.getCause();
+				httpResponse.setStatus(resp.getCode());
+			} else {
+				httpResponse.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+			}
 		}
 		return false;
 	}

@@ -98,16 +98,19 @@ public class Core {
 		}
 		if (!authResponse.indicatesSuccess()) {
 			String message = null;
+			int code;
 			if (authResponse instanceof AuthenticationErrorResponse) {
 				AuthenticationErrorResponse errorResponse = (AuthenticationErrorResponse) authResponse;
 				ErrorObject errorObj = errorResponse.getErrorObject();
 				message = "Response error at authorization code: HTTP Code " + errorObj.getCode() + " - " + errorObj.getDescription();
+				code = errorObj.getHTTPStatusCode();
 			} else {
 				HTTPResponse httpResponse = authResponse.toHTTPResponse();
 				message = "Response error at authorization code: HTTP Code " + httpResponse.getStatusCode() + " - " + httpResponse.getContent();
+				code = httpResponse.getStatusCode();
 			}
 			logger.log(Level.SEVERE, message);
-			throw new ResponseException(message);
+			throw new ResponseException(code, message);
 		}
 		
 		AuthenticationSuccessResponse successResponse = (AuthenticationSuccessResponse) authResponse;
@@ -122,19 +125,19 @@ public class Core {
 	 * Get the tokens based on the authorization code sent by the OP
 	 * 
 	 * @param provider
-	 * @param code
+	 * @param authCode
 	 * @return
 	 * @throws RequestException 
 	 * @throws ResponseException 
 	 */
-	public static OIDCTokens getTokensFromAuthCode(OpenIDCProvider provider, AuthorizationCode code) throws RequestException, ResponseException {
+	public static OIDCTokens getTokensFromAuthCode(OpenIDCProvider provider, AuthorizationCode authCode) throws RequestException, ResponseException {
 		ClientID client = new ClientID(provider.getId());
 		Secret secret = new Secret(provider.getSecret());
 		URI tokenEndpoint = provider.getMetadata().getTokenEndpointURI();
 		URI clientRedirect = URI.create(provider.getCallbackURI());
 		
 		ClientSecretBasic clientSecretBasic = new ClientSecretBasic(client, secret);
-		AuthorizationCodeGrant authCodeGrant = new AuthorizationCodeGrant(code, clientRedirect);
+		AuthorizationCodeGrant authCodeGrant = new AuthorizationCodeGrant(authCode, clientRedirect);
 		TokenRequest tokenReq = new TokenRequest(tokenEndpoint, clientSecretBasic, authCodeGrant);
 		HTTPResponse httpResponse = null;
 		try {
@@ -153,15 +156,18 @@ public class Core {
 		}
 		if (!tokenResponse.indicatesSuccess()) {
 			String message = null;
+			int code;
 			if (tokenResponse instanceof TokenErrorResponse) {
 				TokenErrorResponse errorResponse = (TokenErrorResponse) tokenResponse;
 				ErrorObject errorObj = errorResponse.getErrorObject();
 				message = "Response error at token response: HTTP Code " + errorObj.getCode() + " - " + errorObj.getDescription();
+				code = errorObj.getHTTPStatusCode();
 			} else {
 				message = "Response error at token response: HTTP Code " + httpResponse.getStatusCode() + " - " + httpResponse.getContent();
+				code = httpResponse.getStatusCode();
 			}
 			logger.log(Level.SEVERE, message);
-			throw new ResponseException(message);
+			throw new ResponseException(code, message);
 		}
 		OIDCTokenResponse accessTokenResponse = (OIDCTokenResponse) tokenResponse.toSuccessResponse();
 		OIDCTokens tokens = accessTokenResponse.getOIDCTokens();
@@ -234,15 +240,18 @@ public class Core {
 		
 		if (!userInfoResponse.indicatesSuccess()) {
 			String message = null;
+			int code;
 			if (userInfoResponse instanceof UserInfoErrorResponse) {
 				UserInfoErrorResponse errorResponse = (UserInfoErrorResponse) userInfoResponse;
 				ErrorObject errorObj = errorResponse.getErrorObject();
 				message = "Response error at userInfo response: HTTP Code " + errorObj.getCode() + " - " + errorObj.getDescription();
+				code = errorObj.getHTTPStatusCode();
 			} else {
 				message = "Response error at userInfo response: HTTP Code " + httpResponse.getStatusCode() + " - " + httpResponse.getContent();
+				code = httpResponse.getStatusCode();
 			}
 			logger.log(Level.SEVERE, message);
-			throw new ResponseException(message);
+			throw new ResponseException(code, message);
 		}
 		
 		UserInfoSuccessResponse userInfoSuccessResponse = userInfoResponse.toSuccessResponse();

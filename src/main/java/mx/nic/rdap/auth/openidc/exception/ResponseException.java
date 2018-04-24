@@ -11,18 +11,37 @@ public class ResponseException extends Exception {
 	 */
 	private static final long serialVersionUID = -4770033484894753235L;
 
+	/**
+	 * Default value 500 "Internal server error"
+	 */
+	private int code = 500;
+	
 	public ResponseException() { }
 
 	public ResponseException(String message) {
 		super(message);
 	}
 
-	public ResponseException(Throwable cause) {
-		super(cause);
+	public ResponseException(int code, String message) {
+		super(message);
+		this.code = code;
 	}
 
 	public ResponseException(String message, Throwable cause) {
 		super(message, cause);
+	}
+
+	public ResponseException(int code, String message, Throwable cause) {
+		super(message, cause);
+		this.code = code;
+	}
+
+	public int getCode() {
+		return code;
+	}
+
+	public void setCode(int code) {
+		this.code = code;
 	}
 
 }

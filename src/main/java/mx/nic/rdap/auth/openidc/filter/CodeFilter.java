@@ -9,12 +9,14 @@ import javax.servlet.ServletException;
 import javax.servlet.ServletRequest;
 import javax.servlet.ServletResponse;
 import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 
 import com.nimbusds.jose.util.Base64;
 import com.nimbusds.openid.connect.sdk.claims.UserInfo;
 
 import mx.nic.rdap.auth.openidc.AuthenticationFlow;
 import mx.nic.rdap.auth.openidc.Configuration;
+import mx.nic.rdap.auth.openidc.exception.ResponseException;
 
 public class CodeFilter implements Filter {
 
@@ -48,6 +50,10 @@ public class CodeFilter implements Filter {
 				userInfo = AuthenticationFlow.getUserInfoFromAuthCode(httpRequest.getQueryString(), Configuration.getProvider());
 			} catch (Exception e) {
 				// FIXME Translate to HTTP Codes, a 500 isn't too good
+				if (e instanceof ResponseException) {
+					ResponseException responseExc = (ResponseException) e;
+					((HttpServletResponse) response).setStatus(responseExc.getCode());
+				}
 				throw new ServletException(e);
 			}
 			request.setAttribute(Configuration.USER_INFO_ATTR, userInfo);
