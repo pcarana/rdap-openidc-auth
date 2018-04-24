@@ -12,6 +12,7 @@ import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.proc.BadJOSEException;
 import com.nimbusds.jose.util.Base64;
+import com.nimbusds.jose.util.DefaultResourceRetriever;
 import com.nimbusds.jwt.JWT;
 import com.nimbusds.oauth2.sdk.AuthorizationCode;
 import com.nimbusds.oauth2.sdk.AuthorizationCodeGrant;
@@ -100,7 +101,6 @@ public class Core {
 			// Use a relative URI
 			authResponse = AuthenticationResponseParser.parse(URI.create("https:///?".concat(requestQuery)));
 		} catch (ParseException e) {
-			logger.log(Level.SEVERE, e.getMessage(), e);
 			throw new ResponseException(e.getMessage(), e);
 		}
 		if (!authResponse.indicatesSuccess()) {
@@ -177,14 +177,14 @@ public class Core {
 		try {
 			httpResponse = tokenReq.toHTTPRequest().send();
 		} catch (SerializeException | IOException e) {
-			logger.log(Level.SEVERE, e.getMessage(), e);
+			logger.log(Level.INFO, e.getMessage(), e);
 			throw new RequestException(e.getMessage(), e);
 		}
 		
 		try {
 			return OIDCTokenResponseParser.parse(httpResponse);
 		} catch (ParseException e) {
-			logger.log(Level.SEVERE, e.getMessage(), e);
+			logger.log(Level.INFO, e.getMessage(), e);
 			throw new ResponseException(e.getMessage(), e);
 		}
 	}
@@ -213,7 +213,7 @@ public class Core {
 		try {
 			httpResponse = tokenReq.toHTTPRequest().send();
 		} catch (SerializeException | IOException e) {
-			logger.log(Level.SEVERE, e.getMessage(), e);
+			logger.log(Level.INFO, e.getMessage(), e);
 			throw new RequestException(e.getMessage(), e);
 		}
 		
@@ -221,7 +221,7 @@ public class Core {
 		try {
 			tokenResponse = OIDCTokenResponseParser.parse(httpResponse);
 		} catch (ParseException e) {
-			logger.log(Level.SEVERE, e.getMessage(), e);
+			logger.log(Level.INFO, e.getMessage(), e);
 			throw new ResponseException(e.getMessage(), e);
 		}
 		if (tokenResponse.indicatesSuccess()) {
@@ -247,21 +247,23 @@ public class Core {
 		try {
 			jwkSetURL = provider.getMetadata().getJWKSetURI().toURL();
 		} catch (MalformedURLException e) {
-			logger.log(Level.SEVERE, e.getMessage(), e);
+			logger.log(Level.INFO, e.getMessage(), e);
 			throw new RequestException(e.getMessage(), e);
 		}
 
-		IDTokenValidator validator = new IDTokenValidator(issuer, client, jwsAlg, jwkSetURL);
+		// FIXME Set 5secs timeout
+		DefaultResourceRetriever retriever = new DefaultResourceRetriever(5000, 5000);
+		IDTokenValidator validator = new IDTokenValidator(issuer, client, jwsAlg, jwkSetURL, retriever);
 		JWT idToken = tokens.getIDToken();
 		try {
 			validator.validate(idToken, null);
 			// TODO Verify that the validation doesn't return Claims,
 			// otherwise the UserInfo will be null
 		} catch (BadJOSEException e) {
-			logger.log(Level.SEVERE, e.getMessage(), e);
+			logger.log(Level.INFO, e.getMessage(), e);
 			throw new ResponseException(e.getMessage(), e);
 		} catch (JOSEException e) {
-			logger.log(Level.SEVERE, e.getMessage(), e);
+			logger.log(Level.INFO, e.getMessage(), e);
 			throw new RequestException(e.getMessage(), e);
 		}
 	}
@@ -286,7 +288,7 @@ public class Core {
 		try {
 			httpResponse = revokeReq.toHTTPRequest().send();
 		} catch (SerializeException | IOException e) {
-			logger.log(Level.SEVERE, e.getMessage(), e);
+			logger.log(Level.INFO, e.getMessage(), e);
 			throw new RequestException(e.getMessage(), e);
 		}
 		
@@ -294,7 +296,7 @@ public class Core {
 		try {
 			tokenResponse = OIDCTokenResponseParser.parse(httpResponse);
 		} catch (ParseException e) {
-			logger.log(Level.SEVERE, e.getMessage(), e);
+			logger.log(Level.INFO, e.getMessage(), e);
 			throw new ResponseException(e.getMessage(), e);
 		}
 		if (tokenResponse.indicatesSuccess()) {
@@ -317,14 +319,14 @@ public class Core {
 		try {
 			httpResponse = userInfoReq.toHTTPRequest().send();
 		} catch (IOException e) {
-			logger.log(Level.SEVERE, e.getMessage(), e);
+			logger.log(Level.INFO, e.getMessage(), e);
 			throw new RequestException(e.getMessage(), e);
 		}
 		UserInfoResponse userInfoResponse = null;
 		try {
 			userInfoResponse = UserInfoResponse.parse(httpResponse);
 		} catch (ParseException e) {
-			logger.log(Level.SEVERE, e.getMessage(), e);
+			logger.log(Level.INFO, e.getMessage(), e);
 			throw new ResponseException(e.getMessage(), e);
 		}
 		
