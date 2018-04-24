@@ -99,6 +99,12 @@ public class AuthenticationFlow {
 		return Core.getUserInfo(provider, tokens);
 	}
 	
+	/**
+	 * Get the RDAP "purpose" claims as user roles
+	 * 
+	 * @param userInfo
+	 * @return
+	 */
 	public static Set<String> getPurposeAsRoles(UserInfo userInfo) {
 		Set<String> roles = new HashSet<String>();
 		if (userInfo.getClaim(PURPOSE_CLAIM) != null) {
