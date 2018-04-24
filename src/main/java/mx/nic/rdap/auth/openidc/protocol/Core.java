@@ -48,6 +48,7 @@ import com.nimbusds.openid.connect.sdk.validators.IDTokenValidator;
 import mx.nic.rdap.auth.openidc.OpenIDCProvider;
 import mx.nic.rdap.auth.openidc.exception.RequestException;
 import mx.nic.rdap.auth.openidc.exception.ResponseException;
+import net.minidev.json.JSONObject;
 
 public class Core {
 
@@ -122,6 +123,24 @@ public class Core {
 	}
 	
 	/**
+	 * Get the tokens as a JSON Object
+	 * 
+	 * @param provider
+	 * @param authCode
+	 * @return
+	 * @throws RequestException
+	 * @throws ResponseException
+	 */
+	public static JSONObject getJSONTokensFromAuthCode(OpenIDCProvider provider, AuthorizationCode authCode)
+			throws RequestException, ResponseException {
+		TokenResponse tokenResponse = getTokenResponse(provider, authCode);
+		if (tokenResponse.indicatesSuccess()) {
+			return tokenResponse.toSuccessResponse().toJSONObject();
+		}
+		return tokenResponse.toErrorResponse().toJSONObject();
+	}
+	
+	/**
 	 * Get the tokens based on the authorization code sent by the OP
 	 * 
 	 * @param provider
@@ -131,6 +150,41 @@ public class Core {
 	 * @throws ResponseException 
 	 */
 	public static OIDCTokens getTokensFromAuthCode(OpenIDCProvider provider, AuthorizationCode authCode) throws RequestException, ResponseException {
+		TokenResponse tokenResponse = getTokenResponse(provider, authCode);
+		if (!tokenResponse.indicatesSuccess()) {
+			String message = null;
+			int code;
+			if (tokenResponse instanceof TokenErrorResponse) {
+				TokenErrorResponse errorResponse = (TokenErrorResponse) tokenResponse;
+				ErrorObject errorObj = errorResponse.getErrorObject();
+				message = "Response error at token response: HTTP Code " + errorObj.getCode() + " - " + errorObj.getDescription();
+				code = errorObj.getHTTPStatusCode();
+			} else {
+				HTTPResponse httpResponse = tokenResponse.toHTTPResponse();
+				message = "Response error at token response: HTTP Code " + httpResponse.getStatusCode() + " - " + httpResponse.getContent();
+				code = httpResponse.getStatusCode();
+			}
+			logger.log(Level.SEVERE, message);
+			throw new ResponseException(code, message);
+		}
+		OIDCTokenResponse accessTokenResponse = (OIDCTokenResponse) tokenResponse.toSuccessResponse();
+		OIDCTokens tokens = accessTokenResponse.getOIDCTokens();
+		if (tokens == null) {
+			throw new ResponseException("Null tokens");
+		}
+		return tokens;
+	}
+	
+	/**
+	 * Get a TokenResponse from the OP using an authorization code
+	 * 
+	 * @param provider
+	 * @param authCode
+	 * @return
+	 * @throws RequestException
+	 * @throws ResponseException
+	 */
+	private static TokenResponse getTokenResponse(OpenIDCProvider provider, AuthorizationCode authCode) throws RequestException, ResponseException {
 		ClientID client = new ClientID(provider.getId());
 		Secret secret = new Secret(provider.getSecret());
 		URI tokenEndpoint = provider.getMetadata().getTokenEndpointURI();
@@ -147,34 +201,12 @@ public class Core {
 			throw new RequestException(e.getMessage(), e);
 		}
 		
-		TokenResponse tokenResponse = null;
 		try {
-			tokenResponse = OIDCTokenResponseParser.parse(httpResponse);
+			return OIDCTokenResponseParser.parse(httpResponse);
 		} catch (ParseException e) {
 			logger.log(Level.SEVERE, e.getMessage(), e);
 			throw new ResponseException(e.getMessage(), e);
 		}
-		if (!tokenResponse.indicatesSuccess()) {
-			String message = null;
-			int code;
-			if (tokenResponse instanceof TokenErrorResponse) {
-				TokenErrorResponse errorResponse = (TokenErrorResponse) tokenResponse;
-				ErrorObject errorObj = errorResponse.getErrorObject();
-				message = "Response error at token response: HTTP Code " + errorObj.getCode() + " - " + errorObj.getDescription();
-				code = errorObj.getHTTPStatusCode();
-			} else {
-				message = "Response error at token response: HTTP Code " + httpResponse.getStatusCode() + " - " + httpResponse.getContent();
-				code = httpResponse.getStatusCode();
-			}
-			logger.log(Level.SEVERE, message);
-			throw new ResponseException(code, message);
-		}
-		OIDCTokenResponse accessTokenResponse = (OIDCTokenResponse) tokenResponse.toSuccessResponse();
-		OIDCTokens tokens = accessTokenResponse.getOIDCTokens();
-		if (tokens == null) {
-			throw new ResponseException("Null tokens");
-		}
-		return tokens;
 	}
 	
 	/**
