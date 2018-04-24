@@ -11,6 +11,7 @@ import javax.servlet.ServletRequest;
 import javax.servlet.http.HttpServletRequest;
 
 import com.nimbusds.oauth2.sdk.AuthorizationCode;
+import com.nimbusds.oauth2.sdk.token.RefreshToken;
 import com.nimbusds.openid.connect.sdk.claims.UserInfo;
 import com.nimbusds.openid.connect.sdk.op.OIDCProviderMetadata;
 import com.nimbusds.openid.connect.sdk.token.OIDCTokens;
@@ -20,6 +21,7 @@ import mx.nic.rdap.auth.openidc.exception.ResponseException;
 import mx.nic.rdap.auth.openidc.protocol.Core;
 import mx.nic.rdap.auth.openidc.protocol.Discovery;
 import mx.nic.rdap.auth.openidc.shiro.IdentifierFilter;
+import net.minidev.json.JSONObject;
 
 public class AuthenticationFlow {
 
@@ -62,13 +64,8 @@ public class AuthenticationFlow {
 	public static String getAuthenticationLocation(ServletRequest request, OpenIDCProvider provider) {
 		String originUri = getOriginURI(request);
 		// Required "openid" scope, "purpose" should be supported
-		Set<String> scope = new HashSet<String>();
-		scope.add("openid");
-		scope.add("email");
-		if (provider.getMetadata().getScopes().contains(PURPOSE_CLAIM)) {
-			scope.add(PURPOSE_CLAIM);
-		}
-		URI location = Core.getAuthenticationURI(provider, scope, originUri);
+		Set<String> scopes = getRequestScopes(provider);
+		URI location = Core.getAuthenticationURI(provider, scopes, originUri);
 		return location.toString();
 	}
 
@@ -97,6 +94,35 @@ public class AuthenticationFlow {
 	public static UserInfo getUserInfoFromToken(OIDCTokens tokens, OpenIDCProvider provider) throws RequestException, ResponseException {
 		Core.verifyToken(provider, tokens);
 		return Core.getUserInfo(provider, tokens);
+	}
+	
+	/**
+	 * Return the token as a JSON Object, based on the authorization code sent by the OP
+	 * 
+	 * @param requestQuery
+	 * @param provider
+	 * @return
+	 * @throws RequestException
+	 * @throws ResponseException
+	 */
+	public static JSONObject getTokenJSON(String requestQuery, OpenIDCProvider provider) throws RequestException, ResponseException {
+		AuthorizationCode authCode = Core.parseAuthorizationCode(requestQuery);
+		return Core.getJSONTokensFromAuthCode(provider, authCode);
+	}
+	
+	/**
+	 * Get a token refresh response as a JSON Object
+	 * 
+	 * @param refreshToken
+	 * @param provider
+	 * @return
+	 * @throws RequestException
+	 * @throws ResponseException
+	 */
+	public static JSONObject getTokenRefreshJSON(String refreshToken, OpenIDCProvider provider) throws RequestException, ResponseException {
+		RefreshToken refreshTokenObj = new RefreshToken(refreshToken);
+		Set<String> scopes = getRequestScopes(provider);
+		return Core.refreshToken(provider, scopes, refreshTokenObj);
 	}
 	
 	/**
@@ -167,5 +193,21 @@ public class AuthenticationFlow {
 			// sb.append();
 		}
 		return sb.toString();
+	}
+	
+	/**
+	 * Get the set of scopes that the RP will request to the OP
+	 * 
+	 * @param provider
+	 * @return
+	 */
+	private static Set<String> getRequestScopes(OpenIDCProvider provider) {
+		Set<String> scopes = new HashSet<String>();
+		scopes.add("openid");
+		scopes.add("email");
+		if (provider.getMetadata().getScopes().contains(PURPOSE_CLAIM)) {
+			scopes.add(PURPOSE_CLAIM);
+		}
+		return scopes;
 	}
 }

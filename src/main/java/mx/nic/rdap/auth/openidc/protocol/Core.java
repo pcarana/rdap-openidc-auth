@@ -17,6 +17,7 @@ import com.nimbusds.oauth2.sdk.AuthorizationCode;
 import com.nimbusds.oauth2.sdk.AuthorizationCodeGrant;
 import com.nimbusds.oauth2.sdk.ErrorObject;
 import com.nimbusds.oauth2.sdk.ParseException;
+import com.nimbusds.oauth2.sdk.RefreshTokenGrant;
 import com.nimbusds.oauth2.sdk.ResponseType;
 import com.nimbusds.oauth2.sdk.Scope;
 import com.nimbusds.oauth2.sdk.SerializeException;
@@ -29,6 +30,7 @@ import com.nimbusds.oauth2.sdk.http.HTTPResponse;
 import com.nimbusds.oauth2.sdk.id.ClientID;
 import com.nimbusds.oauth2.sdk.id.Issuer;
 import com.nimbusds.oauth2.sdk.id.State;
+import com.nimbusds.oauth2.sdk.token.RefreshToken;
 import com.nimbusds.openid.connect.sdk.AuthenticationErrorResponse;
 import com.nimbusds.openid.connect.sdk.AuthenticationRequest;
 import com.nimbusds.openid.connect.sdk.AuthenticationResponse;
@@ -207,6 +209,47 @@ public class Core {
 			logger.log(Level.SEVERE, e.getMessage(), e);
 			throw new ResponseException(e.getMessage(), e);
 		}
+	}
+	
+	/**
+	 * Request a token refresh to the OP and return a JSON Object
+	 * 
+	 * @param provider
+	 * @param scopeCollection
+	 * @param tokens
+	 * @return
+	 * @throws RequestException
+	 * @throws ResponseException
+	 */
+	public static JSONObject refreshToken(OpenIDCProvider provider, Collection<String> scopeCollection,
+			RefreshToken refreshToken) throws RequestException, ResponseException {
+		ClientID client = new ClientID(provider.getId());
+		Secret secret = new Secret(provider.getSecret());
+		URI tokenEndpoint = provider.getMetadata().getTokenEndpointURI();
+		Scope scope = Scope.parse(scopeCollection);
+		
+		ClientSecretBasic clientSecretBasic = new ClientSecretBasic(client, secret);
+		RefreshTokenGrant refreshGrant = new RefreshTokenGrant(refreshToken);
+		TokenRequest tokenReq = new TokenRequest(tokenEndpoint, clientSecretBasic, refreshGrant, scope);
+		HTTPResponse httpResponse = null;
+		try {
+			httpResponse = tokenReq.toHTTPRequest().send();
+		} catch (SerializeException | IOException e) {
+			logger.log(Level.SEVERE, e.getMessage(), e);
+			throw new RequestException(e.getMessage(), e);
+		}
+		
+		TokenResponse tokenResponse = null;
+		try {
+			tokenResponse = OIDCTokenResponseParser.parse(httpResponse);
+		} catch (ParseException e) {
+			logger.log(Level.SEVERE, e.getMessage(), e);
+			throw new ResponseException(e.getMessage(), e);
+		}
+		if (tokenResponse.indicatesSuccess()) {
+			return tokenResponse.toSuccessResponse().toJSONObject();
+		}
+		return tokenResponse.toErrorResponse().toJSONObject();
 	}
 	
 	/**
