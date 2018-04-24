@@ -16,12 +16,12 @@ import com.nimbusds.jwt.JWT;
 import com.nimbusds.oauth2.sdk.AuthorizationCode;
 import com.nimbusds.oauth2.sdk.AuthorizationCodeGrant;
 import com.nimbusds.oauth2.sdk.ErrorObject;
+import com.nimbusds.oauth2.sdk.ErrorResponse;
 import com.nimbusds.oauth2.sdk.ParseException;
 import com.nimbusds.oauth2.sdk.RefreshTokenGrant;
 import com.nimbusds.oauth2.sdk.ResponseType;
 import com.nimbusds.oauth2.sdk.Scope;
 import com.nimbusds.oauth2.sdk.SerializeException;
-import com.nimbusds.oauth2.sdk.TokenErrorResponse;
 import com.nimbusds.oauth2.sdk.TokenRequest;
 import com.nimbusds.oauth2.sdk.TokenResponse;
 import com.nimbusds.oauth2.sdk.TokenRevocationRequest;
@@ -33,7 +33,6 @@ import com.nimbusds.oauth2.sdk.id.Issuer;
 import com.nimbusds.oauth2.sdk.id.State;
 import com.nimbusds.oauth2.sdk.token.RefreshToken;
 import com.nimbusds.oauth2.sdk.token.Token;
-import com.nimbusds.openid.connect.sdk.AuthenticationErrorResponse;
 import com.nimbusds.openid.connect.sdk.AuthenticationRequest;
 import com.nimbusds.openid.connect.sdk.AuthenticationResponse;
 import com.nimbusds.openid.connect.sdk.AuthenticationResponseParser;
@@ -42,7 +41,6 @@ import com.nimbusds.openid.connect.sdk.ClaimsRequest;
 import com.nimbusds.openid.connect.sdk.Nonce;
 import com.nimbusds.openid.connect.sdk.OIDCTokenResponse;
 import com.nimbusds.openid.connect.sdk.OIDCTokenResponseParser;
-import com.nimbusds.openid.connect.sdk.UserInfoErrorResponse;
 import com.nimbusds.openid.connect.sdk.UserInfoRequest;
 import com.nimbusds.openid.connect.sdk.UserInfoResponse;
 import com.nimbusds.openid.connect.sdk.UserInfoSuccessResponse;
@@ -106,20 +104,7 @@ public class Core {
 			throw new ResponseException(e.getMessage(), e);
 		}
 		if (!authResponse.indicatesSuccess()) {
-			String message = null;
-			int code;
-			if (authResponse instanceof AuthenticationErrorResponse) {
-				AuthenticationErrorResponse errorResponse = (AuthenticationErrorResponse) authResponse;
-				ErrorObject errorObj = errorResponse.getErrorObject();
-				message = "Response error at authorization code: HTTP Code " + errorObj.getCode() + " - " + errorObj.getDescription();
-				code = errorObj.getHTTPStatusCode();
-			} else {
-				HTTPResponse httpResponse = authResponse.toHTTPResponse();
-				message = "Response error at authorization code: HTTP Code " + httpResponse.getStatusCode() + " - " + httpResponse.getContent();
-				code = httpResponse.getStatusCode();
-			}
-			logger.log(Level.SEVERE, message);
-			throw new ResponseException(code, message);
+			throw getResponseExceptionFromError(authResponse.toErrorResponse());
 		}
 		
 		AuthenticationSuccessResponse successResponse = (AuthenticationSuccessResponse) authResponse;
@@ -160,20 +145,7 @@ public class Core {
 	public static OIDCTokens getTokensFromAuthCode(OpenIDCProvider provider, AuthorizationCode authCode) throws RequestException, ResponseException {
 		TokenResponse tokenResponse = getTokenResponse(provider, authCode);
 		if (!tokenResponse.indicatesSuccess()) {
-			String message = null;
-			int code;
-			if (tokenResponse instanceof TokenErrorResponse) {
-				TokenErrorResponse errorResponse = (TokenErrorResponse) tokenResponse;
-				ErrorObject errorObj = errorResponse.getErrorObject();
-				message = "Response error at token response: HTTP Code " + errorObj.getCode() + " - " + errorObj.getDescription();
-				code = errorObj.getHTTPStatusCode();
-			} else {
-				HTTPResponse httpResponse = tokenResponse.toHTTPResponse();
-				message = "Response error at token response: HTTP Code " + httpResponse.getStatusCode() + " - " + httpResponse.getContent();
-				code = httpResponse.getStatusCode();
-			}
-			logger.log(Level.SEVERE, message);
-			throw new ResponseException(code, message);
+			throw getResponseExceptionFromError(tokenResponse.toErrorResponse());
 		}
 		OIDCTokenResponse accessTokenResponse = (OIDCTokenResponse) tokenResponse.toSuccessResponse();
 		OIDCTokens tokens = accessTokenResponse.getOIDCTokens();
@@ -357,19 +329,7 @@ public class Core {
 		}
 		
 		if (!userInfoResponse.indicatesSuccess()) {
-			String message = null;
-			int code;
-			if (userInfoResponse instanceof UserInfoErrorResponse) {
-				UserInfoErrorResponse errorResponse = (UserInfoErrorResponse) userInfoResponse;
-				ErrorObject errorObj = errorResponse.getErrorObject();
-				message = "Response error at userInfo response: HTTP Code " + errorObj.getCode() + " - " + errorObj.getDescription();
-				code = errorObj.getHTTPStatusCode();
-			} else {
-				message = "Response error at userInfo response: HTTP Code " + httpResponse.getStatusCode() + " - " + httpResponse.getContent();
-				code = httpResponse.getStatusCode();
-			}
-			logger.log(Level.SEVERE, message);
-			throw new ResponseException(code, message);
+			throw getResponseExceptionFromError(userInfoResponse.toErrorResponse());
 		}
 		
 		UserInfoSuccessResponse userInfoSuccessResponse = userInfoResponse.toSuccessResponse();
@@ -378,6 +338,33 @@ public class Core {
 			throw new ResponseException("Null userInfo");
 		}
 		return userInfo;
+	}
+	
+	/**
+	 * Get a ResponseException with the proper HTTP code
+	 * 
+	 * @param errorResponse
+	 * @return
+	 */
+	private static ResponseException getResponseExceptionFromError(ErrorResponse errorResponse) {
+		ErrorObject errorObj = errorResponse.getErrorObject();
+		String message = errorObj.getDescription();
+		int code = errorObj.getHTTPStatusCode() > 0 ? errorObj.getHTTPStatusCode() : 500;
+		if (errorObj.getCode() != null) {
+			// Handle distinct codes based on RFC 6750 section 3.1
+			switch (errorObj.getCode()) {
+			case "invalid_request":
+				code = 400;
+				break;
+			case "invalid_token":
+				code = 401;
+				break;
+			case "insufficient_scope":
+				code = 403;
+				break;
+			}
+		}
+		return new ResponseException(code, message);
 	}
 
 }
