@@ -24,6 +24,7 @@ import com.nimbusds.oauth2.sdk.SerializeException;
 import com.nimbusds.oauth2.sdk.TokenErrorResponse;
 import com.nimbusds.oauth2.sdk.TokenRequest;
 import com.nimbusds.oauth2.sdk.TokenResponse;
+import com.nimbusds.oauth2.sdk.TokenRevocationRequest;
 import com.nimbusds.oauth2.sdk.auth.ClientSecretBasic;
 import com.nimbusds.oauth2.sdk.auth.Secret;
 import com.nimbusds.oauth2.sdk.http.HTTPResponse;
@@ -31,6 +32,7 @@ import com.nimbusds.oauth2.sdk.id.ClientID;
 import com.nimbusds.oauth2.sdk.id.Issuer;
 import com.nimbusds.oauth2.sdk.id.State;
 import com.nimbusds.oauth2.sdk.token.RefreshToken;
+import com.nimbusds.oauth2.sdk.token.Token;
 import com.nimbusds.openid.connect.sdk.AuthenticationErrorResponse;
 import com.nimbusds.openid.connect.sdk.AuthenticationRequest;
 import com.nimbusds.openid.connect.sdk.AuthenticationResponse;
@@ -286,6 +288,43 @@ public class Core {
 			logger.log(Level.SEVERE, e.getMessage(), e);
 			throw new RequestException(e.getMessage(), e);
 		}
+	}
+	
+	/**
+	 * Request a token revocation to the OP and return the response as a JSON Object
+	 * 
+	 * @param provider
+	 * @param token
+	 * @return
+	 * @throws RequestException
+	 * @throws ResponseException
+	 */
+	public static JSONObject revokeToken(OpenIDCProvider provider, Token token) throws RequestException, ResponseException {
+		ClientID client = new ClientID(provider.getId());
+		Secret secret = new Secret(provider.getSecret());
+		URI tokenEndpoint = provider.getMetadata().getTokenEndpointURI();
+		
+		ClientSecretBasic clientSecretBasic = new ClientSecretBasic(client, secret);
+		TokenRevocationRequest revokeReq = new TokenRevocationRequest(tokenEndpoint, clientSecretBasic, token);
+		HTTPResponse httpResponse = null;
+		try {
+			httpResponse = revokeReq.toHTTPRequest().send();
+		} catch (SerializeException | IOException e) {
+			logger.log(Level.SEVERE, e.getMessage(), e);
+			throw new RequestException(e.getMessage(), e);
+		}
+		
+		TokenResponse tokenResponse = null;
+		try {
+			tokenResponse = OIDCTokenResponseParser.parse(httpResponse);
+		} catch (ParseException e) {
+			logger.log(Level.SEVERE, e.getMessage(), e);
+			throw new ResponseException(e.getMessage(), e);
+		}
+		if (tokenResponse.indicatesSuccess()) {
+			return tokenResponse.toSuccessResponse().toJSONObject();
+		}
+		return tokenResponse.toErrorResponse().toJSONObject();
 	}
 	
 	/**

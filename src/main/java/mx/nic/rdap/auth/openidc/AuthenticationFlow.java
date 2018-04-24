@@ -12,6 +12,7 @@ import javax.servlet.http.HttpServletRequest;
 
 import com.nimbusds.oauth2.sdk.AuthorizationCode;
 import com.nimbusds.oauth2.sdk.token.RefreshToken;
+import com.nimbusds.oauth2.sdk.token.Token;
 import com.nimbusds.openid.connect.sdk.claims.UserInfo;
 import com.nimbusds.openid.connect.sdk.op.OIDCProviderMetadata;
 import com.nimbusds.openid.connect.sdk.token.OIDCTokens;
@@ -123,6 +124,37 @@ public class AuthenticationFlow {
 		RefreshToken refreshTokenObj = new RefreshToken(refreshToken);
 		Set<String> scopes = getRequestScopes(provider);
 		return Core.refreshToken(provider, scopes, refreshTokenObj);
+	}
+	
+	/**
+	 * Get a token revoke response as a JSON Object
+	 * 
+	 * @param token
+	 * @param provider
+	 * @return
+	 * @throws RequestException
+	 * @throws ResponseException
+	 */
+	public static JSONObject getTokenRevokeJSON(String token, OpenIDCProvider provider) throws RequestException, ResponseException {
+		Token tokenObject = new Token(token) {
+			
+			private static final long serialVersionUID = 1L;
+
+			@Override
+			public JSONObject toJSONObject() {
+				JSONObject o = new JSONObject();
+				o.put("token", getValue());
+				return o;
+			}
+			
+			@Override
+			public Set<String> getParameterNames() {
+				Set<String> paramNames = new HashSet<>();
+				paramNames.add("token");
+				return paramNames;
+			}
+		};
+		return Core.revokeToken(provider, tokenObject);
 	}
 	
 	/**
