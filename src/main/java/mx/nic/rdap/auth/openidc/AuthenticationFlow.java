@@ -40,14 +40,13 @@ public class AuthenticationFlow {
 	/**
 	 * Updates an OP provider metadata if it doesn't have any metadata already loaded
 	 * 
-	 * @param userId
 	 * @param provider
 	 * @throws RequestException
 	 * @throws ResponseException
 	 */
-	public static void updateProviderMetadata(String userId, OpenIDCProvider provider)
+	public static void updateProviderMetadata(OpenIDCProvider provider)
 			throws RequestException, ResponseException {
-		String providerURI = Discovery.discoverProvider(userId);
+		String providerURI = provider.getProviderURI();
 		if (provider.getMetadata() == null) {
 			OIDCProviderMetadata metadata = Discovery.getProviderMetadata(providerURI);
 			provider.setMetadata(metadata);
@@ -63,6 +62,10 @@ public class AuthenticationFlow {
 	 * @return
 	 */
 	public static String getAuthenticationLocation(String userId, ServletRequest request, OpenIDCProvider provider) {
+		/*
+		 * TODO Discovery process, currently only one provider is supported, so the
+		 * discovery is avoided // Discovery.discoverProvider(userId);
+		 */
 		String originUri = getOriginURI(request);
 		// Required "openid" scope, "purpose" should be supported
 		Set<String> scopes = getRequestScopes(provider);

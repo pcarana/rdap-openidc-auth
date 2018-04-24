@@ -42,6 +42,11 @@ public class SecurityRealm extends AuthorizingRealm {
 	public void onInit() {
 		OpenIDCProvider provider = new OpenIDCProvider(clientId, clientSecret, clientCallbackURI, providerURI);
 		Configuration.setProvider(provider);
+		try {
+			AuthenticationFlow.updateProviderMetadata(provider);
+		} catch (RequestException | ResponseException e) {
+			throw new RuntimeException(e.getMessage(), e);
+		}
 	}
 
 	@Override
@@ -68,11 +73,6 @@ public class SecurityRealm extends AuthorizingRealm {
 			EndUserToken userToken = (EndUserToken) token;
 			OpenIDCProvider provider = Configuration.getProvider();
 			String userId = userToken.getPrincipal().toString();
-			try {
-				AuthenticationFlow.updateProviderMetadata(userId, provider);
-			} catch (RequestException | ResponseException e) {
-				throw new AuthenticationException(e.getMessage(), e);
-			}
 			String location = AuthenticationFlow.getAuthenticationLocation(userId, userToken.getRequest(), provider);
 			throw new RedirectException(location);
 		}
