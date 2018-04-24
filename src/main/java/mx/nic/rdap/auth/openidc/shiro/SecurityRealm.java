@@ -67,12 +67,13 @@ public class SecurityRealm extends AuthorizingRealm {
 			// From 3.1.3 to 3.1.3.3
 			EndUserToken userToken = (EndUserToken) token;
 			OpenIDCProvider provider = Configuration.getProvider();
+			String userId = userToken.getPrincipal().toString();
 			try {
-				AuthenticationFlow.updateProviderMetadata(userToken.getPrincipal().toString(), provider);
+				AuthenticationFlow.updateProviderMetadata(userId, provider);
 			} catch (RequestException | ResponseException e) {
 				throw new AuthenticationException(e.getMessage(), e);
 			}
-			String location = AuthenticationFlow.getAuthenticationLocation(userToken.getRequest(), provider);
+			String location = AuthenticationFlow.getAuthenticationLocation(userId, userToken.getRequest(), provider);
 			throw new RedirectException(location);
 		}
 		if (token instanceof CustomOIDCToken) {

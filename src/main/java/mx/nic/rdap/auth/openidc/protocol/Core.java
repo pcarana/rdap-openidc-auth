@@ -71,7 +71,7 @@ public class Core {
 	 * @param originURI
 	 * @return
 	 */
-	public static URI getAuthenticationURI(OpenIDCProvider provider, Collection<String> scopeCollection,
+	public static URI getAuthenticationURI(OpenIDCProvider provider, String userId, Collection<String> scopeCollection,
 			String originURI) {
 		ClientID clientID = new ClientID(provider.getId());
 		URI authorizationEndpoint = provider.getMetadata().getAuthorizationEndpointURI();
@@ -82,7 +82,8 @@ public class Core {
 		State state = new State(Base64.encode(originURI).toString());
 		Nonce nonce = new Nonce();
 		AuthenticationRequest req = new AuthenticationRequest(authorizationEndpoint,
-				new ResponseType(ResponseType.Value.CODE), scope, clientID, clientRedirect, state, nonce);
+				new ResponseType(ResponseType.Value.CODE), null, scope, clientID, clientRedirect, state, nonce, null,
+				null, -1, null, null, null, userId, null, null, null, null, null, null);
 		return req.toURI();
 	}
 	

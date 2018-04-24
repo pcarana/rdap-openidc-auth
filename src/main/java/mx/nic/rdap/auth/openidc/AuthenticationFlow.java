@@ -62,11 +62,11 @@ public class AuthenticationFlow {
 	 * @param provider
 	 * @return
 	 */
-	public static String getAuthenticationLocation(ServletRequest request, OpenIDCProvider provider) {
+	public static String getAuthenticationLocation(String userId, ServletRequest request, OpenIDCProvider provider) {
 		String originUri = getOriginURI(request);
 		// Required "openid" scope, "purpose" should be supported
 		Set<String> scopes = getRequestScopes(provider);
-		URI location = Core.getAuthenticationURI(provider, scopes, originUri);
+		URI location = Core.getAuthenticationURI(provider, userId, scopes, originUri);
 		return location.toString();
 	}
 
