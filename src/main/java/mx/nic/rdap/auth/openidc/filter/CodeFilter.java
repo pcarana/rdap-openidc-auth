@@ -16,6 +16,7 @@ import com.nimbusds.openid.connect.sdk.claims.UserInfo;
 
 import mx.nic.rdap.auth.openidc.AuthenticationFlow;
 import mx.nic.rdap.auth.openidc.Configuration;
+import mx.nic.rdap.auth.openidc.exception.RequestException;
 import mx.nic.rdap.auth.openidc.exception.ResponseException;
 
 /**
@@ -61,6 +62,10 @@ public class CodeFilter implements Filter {
 					ResponseException responseExc = (ResponseException) e;
 					HttpServletResponse httpResponse = (HttpServletResponse) response;
 					httpResponse.sendError(responseExc.getCode(), responseExc.getMessage());
+					return;
+				} else if (e instanceof RequestException) {
+					HttpServletResponse httpResponse = (HttpServletResponse) response;
+					httpResponse.sendError(500, "Unexpected error, try again");
 					return;
 				}
 				throw new ServletException(e);
