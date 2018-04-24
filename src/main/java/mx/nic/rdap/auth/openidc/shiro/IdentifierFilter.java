@@ -2,8 +2,6 @@ package mx.nic.rdap.auth.openidc.shiro;
 
 import java.io.IOException;
 import java.util.Map;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 import javax.servlet.ServletRequest;
 import javax.servlet.ServletResponse;
@@ -25,12 +23,9 @@ public class IdentifierFilter extends AuthenticatingFilter {
 	public static final String ID_PARAM = "id";
 	public static final String ID_TOKEN_PARAM = "id_token";
 	public static final String ACCESS_TOKEN_PARAM = "access_token";
-	
-	private static Logger logger = Logger.getLogger(IdentifierFilter.class.getName());
 
 	@Override
 	protected AuthenticationToken createToken(ServletRequest request, ServletResponse response) throws Exception {
-		logger.log(Level.SEVERE, "At createToken");
 		// Previously it has been assured that the parameter(s) exists
 		if (request.getParameter(ID_PARAM) != null) {
 			return new EndUserToken(request.getParameter(ID_PARAM).trim(), request);
@@ -54,7 +49,6 @@ public class IdentifierFilter extends AuthenticatingFilter {
 
 	@Override
 	protected boolean onAccessDenied(ServletRequest request, ServletResponse response) throws Exception {
-		logger.log(Level.SEVERE, "At onAccessDenied = " + isLoginRequest(request, response));
 		if (!isLoginRequest(request, response)) {
 			return true;
 		}
@@ -63,7 +57,6 @@ public class IdentifierFilter extends AuthenticatingFilter {
 
 	@Override
 	protected final boolean isLoginRequest(ServletRequest request, ServletResponse response) {
-		logger.log(Level.SEVERE, "At isLoginRequest = " + hasValidParams(request));
 		return hasValidParams(request);
 	}
 
@@ -85,24 +78,21 @@ public class IdentifierFilter extends AuthenticatingFilter {
 
 	protected boolean onLoginFailure(AuthenticationToken token, AuthenticationException e, ServletRequest request,
 			ServletResponse response) {
+		HttpServletResponse httpResponse = (HttpServletResponse) response;
 		if (e instanceof RedirectException) {
 			RedirectException re = (RedirectException) e;
 			try {
 				((HttpServletResponse) response).sendRedirect(re.getLocation());
 			} catch (IOException e1) {
-				// TODO Auto-generated catch block
-				e1.printStackTrace();
 				return false;
 			}
 			return false;
+		}
+		if (e.getCause() != null && e.getCause() instanceof ResponseException) {
+			ResponseException resp = (ResponseException) e.getCause();
+			httpResponse.setStatus(resp.getCode());
 		} else {
-			HttpServletResponse httpResponse = (HttpServletResponse) response;
-			if (e.getCause() instanceof ResponseException) {
-				ResponseException resp = (ResponseException) e.getCause();
-				httpResponse.setStatus(resp.getCode());
-			} else {
-				httpResponse.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-			}
+			httpResponse.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
 		}
 		return false;
 	}
