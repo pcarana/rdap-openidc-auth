@@ -30,7 +30,7 @@ public class UserInfoToken implements AuthenticationToken {
 
 	@Override
 	public Object getPrincipal() {
-		return userInfo.getSubject().getValue();
+		return userInfo;
 	}
 
 	@Override

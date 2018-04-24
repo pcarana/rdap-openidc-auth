@@ -166,7 +166,8 @@ public class AuthenticationFlow {
 	public static Set<String> getPurposeAsRoles(UserInfo userInfo) {
 		Set<String> roles = new HashSet<String>();
 		if (userInfo.getClaim(PURPOSE_CLAIM) != null) {
-			roles.add(userInfo.getStringClaim(PURPOSE_CLAIM));
+			// Use them as lowercase
+			roles.add(userInfo.getStringClaim(PURPOSE_CLAIM).toLowerCase());
 		}
 		return roles;
 	}
@@ -236,10 +237,7 @@ public class AuthenticationFlow {
 	private static Set<String> getRequestScopes(OpenIDCProvider provider) {
 		Set<String> scopes = new HashSet<String>();
 		scopes.add("openid");
-		scopes.add("email");
-		if (provider.getMetadata().getScopes().contains(PURPOSE_CLAIM)) {
-			scopes.add(PURPOSE_CLAIM);
-		}
+		scopes.add("profile");
 		return scopes;
 	}
 }

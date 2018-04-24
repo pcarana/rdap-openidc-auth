@@ -38,6 +38,7 @@ import com.nimbusds.openid.connect.sdk.AuthenticationRequest;
 import com.nimbusds.openid.connect.sdk.AuthenticationResponse;
 import com.nimbusds.openid.connect.sdk.AuthenticationResponseParser;
 import com.nimbusds.openid.connect.sdk.AuthenticationSuccessResponse;
+import com.nimbusds.openid.connect.sdk.ClaimsRequest;
 import com.nimbusds.openid.connect.sdk.Nonce;
 import com.nimbusds.openid.connect.sdk.OIDCTokenResponse;
 import com.nimbusds.openid.connect.sdk.OIDCTokenResponseParser;
@@ -77,13 +78,15 @@ public class Core {
 		URI authorizationEndpoint = provider.getMetadata().getAuthorizationEndpointURI();
 		URI clientRedirect = URI.create(provider.getCallbackURI());
 		Scope scope = Scope.parse(scopeCollection);
+		ClaimsRequest claims = new ClaimsRequest();
+		claims.addUserInfoClaim("purpose");
 		// The origin URI is used as the state to remember from where the request was
 		// made
 		State state = new State(Base64.encode(originURI).toString());
 		Nonce nonce = new Nonce();
 		AuthenticationRequest req = new AuthenticationRequest(authorizationEndpoint,
 				new ResponseType(ResponseType.Value.CODE), null, scope, clientID, clientRedirect, state, nonce, null,
-				null, -1, null, null, null, userId, null, null, null, null, null, null);
+				null, -1, null, null, null, userId, null, claims, null, null, null, null);
 		return req.toURI();
 	}
 	
