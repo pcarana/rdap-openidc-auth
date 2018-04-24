@@ -13,7 +13,7 @@ public class CustomOIDCToken implements AuthenticationToken {
 	 */
 	private static final long serialVersionUID = -1027558836698344937L;
 	
-	private OIDCTokens tokens;
+	private OIDCTokens oidcTokens;
 	
 	public CustomOIDCToken(String idToken, String accessToken) {
 		AccessToken accessTokenObj = new AccessToken(AccessTokenType.BEARER, accessToken) {
@@ -28,19 +28,16 @@ public class CustomOIDCToken implements AuthenticationToken {
 				return this.getType().getValue().concat(" ").concat(this.getValue());
 			}
 		};
-		tokens = new OIDCTokens(idToken, accessTokenObj, null);
+		oidcTokens = new OIDCTokens(idToken, accessTokenObj, null);
 	}
 
 	@Override
 	public Object getPrincipal() {
-		// TODO Auto-generated method stub
-		return tokens;
+		return null;
 	}
 
 	@Override
 	public Object getCredentials() {
-		// TODO Auto-generated method stub
-		return tokens;
+		return oidcTokens;
 	}
-
 }

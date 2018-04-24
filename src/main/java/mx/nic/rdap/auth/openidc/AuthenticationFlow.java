@@ -84,7 +84,7 @@ public class AuthenticationFlow {
 	public static UserInfo getUserInfoFromAuthCode(String requestQuery, OpenIDCProvider provider) throws RequestException, ResponseException {
 		AuthorizationCode authCode = Core.parseAuthorizationCode(requestQuery);
 		OIDCTokens tokens = Core.getTokensFromAuthCode(provider, authCode);
-		return getUserInfoFromToken(tokens);
+		return getUserInfoFromToken(tokens, provider);
 	}
 	
 	/**
@@ -94,15 +94,9 @@ public class AuthenticationFlow {
 	 * @return
 	 * @throws Exception
 	 */
-	public static UserInfo getUserInfoFromToken(OIDCTokens tokens) throws RequestException, ResponseException {
-		// if (token instanceof CustomOIDCToken) {
-		// logger.log(Level.SEVERE, "At CustomOIDCToken");
-		// CustomOIDCToken customToken = (CustomOIDCToken) token;
-		// tokens = (OIDCTokens) customToken.getPrincipal();
-		// }
-		// From 3.1.3.5 to 3.1.3.6
-		Core.verifyToken(Configuration.getProvider(), tokens);
-		return Core.getUserInfo(Configuration.getProvider(), tokens);
+	public static UserInfo getUserInfoFromToken(OIDCTokens tokens, OpenIDCProvider provider) throws RequestException, ResponseException {
+		Core.verifyToken(provider, tokens);
+		return Core.getUserInfo(provider, tokens);
 	}
 	
 	public static Set<String> getPurposeAsRoles(UserInfo userInfo) {

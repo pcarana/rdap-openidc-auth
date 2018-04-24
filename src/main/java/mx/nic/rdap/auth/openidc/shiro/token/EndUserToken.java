@@ -21,13 +21,11 @@ public class EndUserToken implements AuthenticationToken {
 
 	@Override
 	public Object getPrincipal() {
-		// TODO Auto-generated method stub
 		return id;
 	}
 
 	@Override
 	public Object getCredentials() {
-		// TODO Auto-generated method stub
 		return null;
 	}
 	

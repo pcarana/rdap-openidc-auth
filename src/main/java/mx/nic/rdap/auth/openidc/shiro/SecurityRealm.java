@@ -14,6 +14,7 @@ import org.apache.shiro.realm.AuthorizingRealm;
 import org.apache.shiro.subject.PrincipalCollection;
 
 import com.nimbusds.openid.connect.sdk.claims.UserInfo;
+import com.nimbusds.openid.connect.sdk.token.OIDCTokens;
 
 import mx.nic.rdap.auth.openidc.AuthenticationFlow;
 import mx.nic.rdap.auth.openidc.Configuration;
@@ -74,19 +75,23 @@ public class SecurityRealm extends AuthorizingRealm {
 			String location = AuthenticationFlow.getAuthenticationLocation(userToken.getRequest(), provider);
 			throw new RedirectException(location);
 		}
+		if (token instanceof CustomOIDCToken) {
+			CustomOIDCToken customToken = (CustomOIDCToken) token;
+			OIDCTokens oidcTokens = (OIDCTokens) customToken.getCredentials();
+			// Now the token will be a UserInfoToken
+			try {
+				UserInfo userInfo = AuthenticationFlow.getUserInfoFromToken(oidcTokens, Configuration.getProvider());
+				token = new UserInfoToken(userInfo);
+			} catch (RequestException | ResponseException e) {
+				throw new AuthenticationException(e.getMessage(), e);
+			}
+		}
+		// It's a UserInfoToken instance
 		
 		// If there's no principal, then something went wrong authenticating it
 		if (token.getPrincipal() == null) {
 			throw new IncorrectCredentialsException("Failed login");
 		}
-//		UserInfo userInfo = null;
-//		if (token instanceof UserInfoToken) {
-//			userInfo = (UserInfo) token.getPrincipal();
-//		}
-//		if (userInfo == null) {
-//			throw new IncorrectCredentialsException("Failed login");
-//		}
-
 		AuthenticationInfo authInfo = new SimpleAuthenticationInfo(token.getPrincipal(), token.getCredentials(),
 				getName());
 		return authInfo;

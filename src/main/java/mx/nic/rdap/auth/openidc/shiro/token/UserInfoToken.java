@@ -24,15 +24,17 @@ public class UserInfoToken implements AuthenticationToken {
 		}
 	}
 
+	public UserInfoToken(UserInfo userInfo) {
+		this.userInfo = userInfo;
+	}
+
 	@Override
 	public Object getPrincipal() {
-		// TODO Auto-generated method stub
-		return userInfo;
+		return userInfo.getSubject().getValue();
 	}
 
 	@Override
 	public Object getCredentials() {
-		// TODO Auto-generated method stub
 		return userInfo;
 	}
 
