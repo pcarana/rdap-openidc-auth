@@ -18,14 +18,19 @@ import mx.nic.rdap.auth.openidc.AuthenticationFlow;
 import mx.nic.rdap.auth.openidc.Configuration;
 import mx.nic.rdap.auth.openidc.exception.ResponseException;
 
+/**
+ * Specific filter used to parse an authorization code sent by an OP, the
+ * request MUST contain 2 parameters "state" and "code", any other parameter
+ * will be ignored.
+ *
+ */
 public class CodeFilter implements Filter {
 
 	private static final String STATE_PARAM = "state";
 	
 	@Override
 	public void init(FilterConfig filterConfig) throws ServletException {
-		// TODO Auto-generated method stub
-		
+		//
 	}
 
 	@Override
