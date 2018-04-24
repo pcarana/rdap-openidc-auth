@@ -26,6 +26,7 @@ import mx.nic.rdap.auth.openidc.exception.ResponseException;
  */
 public class CodeFilter implements Filter {
 
+	private static final String CODE_PARAM = "code";
 	private static final String STATE_PARAM = "state";
 	
 	@Override
@@ -36,28 +37,31 @@ public class CodeFilter implements Filter {
 	@Override
 	public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
 			throws IOException, ServletException {
-		// Get the request, the state MUST be present to forward the request
-		if (request.getParameter(STATE_PARAM) == null) {
+		// Get the request, the code and state MUST be present to forward the request
+		String codeParam = request.getParameter(CODE_PARAM);
+		String stateParam = request.getParameter(STATE_PARAM);
+		if (codeParam == null || codeParam.isEmpty() || stateParam == null || stateParam.isEmpty()) {
+			chain.doFilter(request, response);
+			return;
+		}
+		String forwardURI = new Base64(stateParam).decodeToString();
+		if (forwardURI == null || forwardURI.isEmpty()) {
+			// Invalid state, continue chain
 			chain.doFilter(request, response);
 			return;
 		}
 		if (request instanceof HttpServletRequest) {
 			HttpServletRequest httpRequest = (HttpServletRequest) request;
-			String forwardURI = null;
-			if (request.getParameter(STATE_PARAM) != null) {
-				forwardURI = new Base64(httpRequest.getParameter(STATE_PARAM)).decodeToString();
-			} else {
-				// FIXME Where to go?
-				forwardURI = "";
-			}
 			UserInfo userInfo = null;
 			try {
 				userInfo = AuthenticationFlow.getUserInfoFromAuthCode(httpRequest.getQueryString(), Configuration.getProvider());
 			} catch (Exception e) {
-				// FIXME Translate to HTTP Codes, a 500 isn't too good
+				// Translate to HTTP Codes
 				if (e instanceof ResponseException) {
 					ResponseException responseExc = (ResponseException) e;
-					((HttpServletResponse) response).setStatus(responseExc.getCode());
+					HttpServletResponse httpResponse = (HttpServletResponse) response;
+					httpResponse.sendError(responseExc.getCode(), responseExc.getMessage());
+					return;
 				}
 				throw new ServletException(e);
 			}
