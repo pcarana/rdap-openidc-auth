@@ -21,9 +21,7 @@ import mx.nic.rdap.auth.openidc.Configuration;
 import mx.nic.rdap.auth.openidc.OpenIDCProvider;
 import mx.nic.rdap.auth.openidc.exception.RequestException;
 import mx.nic.rdap.auth.openidc.exception.ResponseException;
-import mx.nic.rdap.auth.openidc.shiro.exception.RedirectException;
 import mx.nic.rdap.auth.openidc.shiro.token.CustomOIDCToken;
-import mx.nic.rdap.auth.openidc.shiro.token.EndUserToken;
 import mx.nic.rdap.auth.openidc.shiro.token.UserInfoToken;
 
 public class SecurityRealm extends AuthorizingRealm {
@@ -51,10 +49,7 @@ public class SecurityRealm extends AuthorizingRealm {
 
 	@Override
 	public boolean supports(AuthenticationToken token) {
-		if (token != null) {
-			return token instanceof EndUserToken || token instanceof UserInfoToken || token instanceof CustomOIDCToken;
-		}
-		return false;
+		return token != null && (token instanceof UserInfoToken || token instanceof CustomOIDCToken);
 	}
 
 	@Override
@@ -67,15 +62,6 @@ public class SecurityRealm extends AuthorizingRealm {
 
 	@Override
 	protected AuthenticationInfo doGetAuthenticationInfo(AuthenticationToken token) throws AuthenticationException {
-		// Redirect to OP login when an end user token is received
-		if (token instanceof EndUserToken) {
-			// From 3.1.3 to 3.1.3.3
-			EndUserToken userToken = (EndUserToken) token;
-			OpenIDCProvider provider = Configuration.getProvider();
-			String userId = userToken.getPrincipal().toString();
-			String location = AuthenticationFlow.getAuthenticationLocation(userId, userToken.getRequest(), provider);
-			throw new RedirectException(location);
-		}
 		if (token instanceof CustomOIDCToken) {
 			CustomOIDCToken customToken = (CustomOIDCToken) token;
 			OIDCTokens oidcTokens = (OIDCTokens) customToken.getCredentials();

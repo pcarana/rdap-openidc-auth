@@ -53,28 +53,38 @@ public class CodeFilter implements Filter {
 		}
 		if (request instanceof HttpServletRequest) {
 			HttpServletRequest httpRequest = (HttpServletRequest) request;
-			UserInfo userInfo = null;
-			try {
-				userInfo = AuthenticationFlow.getUserInfoFromAuthCode(httpRequest.getQueryString(), Configuration.getProvider());
-			} catch (Exception e) {
-				// Translate to HTTP Codes
-				if (e instanceof ResponseException) {
-					ResponseException responseExc = (ResponseException) e;
-					HttpServletResponse httpResponse = (HttpServletResponse) response;
-					httpResponse.sendError(responseExc.getCode(), responseExc.getMessage());
-					return;
-				} else if (e instanceof RequestException) {
-					HttpServletResponse httpResponse = (HttpServletResponse) response;
-					httpResponse.sendError(500, "Unexpected error, try again");
-					return;
+			// The code may had been requested from the tokens servlet
+			if (forwardURI.startsWith("/tokens")) {
+				forwardURI = updateQuery(forwardURI, httpRequest);
+			} else {
+				UserInfo userInfo = null;
+				try {
+					userInfo = AuthenticationFlow.getUserInfoFromAuthCode(httpRequest.getQueryString(), Configuration.getProvider());
+				} catch (Exception e) {
+					// Translate to HTTP Codes
+					if (e instanceof ResponseException) {
+						ResponseException responseExc = (ResponseException) e;
+						HttpServletResponse httpResponse = (HttpServletResponse) response;
+						httpResponse.sendError(responseExc.getCode(), responseExc.getMessage());
+						return;
+					} else if (e instanceof RequestException) {
+						HttpServletResponse httpResponse = (HttpServletResponse) response;
+						httpResponse.sendError(500, "Unexpected error, try again");
+						return;
+					}
+					throw new ServletException(e);
 				}
-				throw new ServletException(e);
+				request.setAttribute(Configuration.USER_INFO_ATTR, userInfo);
 			}
-			request.setAttribute(Configuration.USER_INFO_ATTR, userInfo);
 			request.getRequestDispatcher(forwardURI).forward(request, response);
 			return;
 		}
 		chain.doFilter(request, response);
+	}
+
+	private String updateQuery(String forwardURI, HttpServletRequest httpRequest) {
+		String appendParams = httpRequest.getQueryString();
+		return forwardURI.concat(forwardURI.contains("?") ? "&" : "?").concat(appendParams);
 	}
 
 	@Override
