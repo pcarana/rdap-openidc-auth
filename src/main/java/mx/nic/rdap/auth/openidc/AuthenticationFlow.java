@@ -11,6 +11,7 @@ import javax.servlet.ServletRequest;
 import javax.servlet.http.HttpServletRequest;
 
 import com.nimbusds.oauth2.sdk.AuthorizationCode;
+import com.nimbusds.oauth2.sdk.TokenResponse;
 import com.nimbusds.oauth2.sdk.token.RefreshToken;
 import com.nimbusds.oauth2.sdk.token.Token;
 import com.nimbusds.openid.connect.sdk.claims.UserInfo;
@@ -114,6 +115,12 @@ public class AuthenticationFlow {
 		return Core.getJSONTokensFromAuthCode(provider, authCode);
 	}
 	
+	public static TokenResponse getTokenResponse(String requestQuery, OpenIDCProvider provider)
+			throws RequestException, ResponseException {
+		AuthorizationCode authCode = Core.parseAuthorizationCode(requestQuery);
+		return Core.getTokenResponseFromAuthCode(provider, authCode);
+	}
+
 	/**
 	 * Get a token refresh response as a JSON Object
 	 * 
@@ -123,7 +130,8 @@ public class AuthenticationFlow {
 	 * @throws RequestException
 	 * @throws ResponseException
 	 */
-	public static JSONObject getTokenRefreshJSON(String refreshToken, OpenIDCProvider provider) throws RequestException, ResponseException {
+	public static TokenResponse getTokenRefreshJSON(String refreshToken, OpenIDCProvider provider)
+			throws RequestException, ResponseException {
 		RefreshToken refreshTokenObj = new RefreshToken(refreshToken);
 		Set<String> scopes = getRequestScopes(provider);
 		return Core.refreshToken(provider, scopes, refreshTokenObj);

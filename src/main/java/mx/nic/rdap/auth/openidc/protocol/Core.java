@@ -14,6 +14,7 @@ import com.nimbusds.jose.proc.BadJOSEException;
 import com.nimbusds.jose.util.Base64;
 import com.nimbusds.jose.util.DefaultResourceRetriever;
 import com.nimbusds.jwt.JWT;
+import com.nimbusds.oauth2.sdk.AccessTokenResponse;
 import com.nimbusds.oauth2.sdk.AuthorizationCode;
 import com.nimbusds.oauth2.sdk.AuthorizationCodeGrant;
 import com.nimbusds.oauth2.sdk.ErrorObject;
@@ -134,6 +135,12 @@ public class Core {
 		return tokenResponse.toErrorResponse().toJSONObject();
 	}
 	
+	public static TokenResponse getTokenResponseFromAuthCode(OpenIDCProvider provider, AuthorizationCode authCode)
+			throws RequestException, ResponseException {
+		TokenResponse tokenResponse = getTokenResponse(provider, authCode);
+		return tokenResponse;
+	}
+
 	/**
 	 * Get the tokens based on the authorization code sent by the OP
 	 * 
@@ -200,7 +207,7 @@ public class Core {
 	 * @throws RequestException
 	 * @throws ResponseException
 	 */
-	public static JSONObject refreshToken(OpenIDCProvider provider, Collection<String> scopeCollection,
+	public static TokenResponse refreshToken(OpenIDCProvider provider, Collection<String> scopeCollection,
 			RefreshToken refreshToken) throws RequestException, ResponseException {
 		ClientID client = new ClientID(provider.getId());
 		Secret secret = new Secret(provider.getSecret());
@@ -218,17 +225,29 @@ public class Core {
 			throw new RequestException(e.getMessage(), e);
 		}
 		
+		
+		if (!httpResponse.indicatesSuccess()) {
+			try {
+				throw new ResponseException(HTTPResponse.SC_BAD_REQUEST,
+						httpResponse.getContentAsJSONObject().getAsString("error_description"));
+			} catch (ParseException e) {
+				logger.log(Level.INFO, e.getMessage(), e);
+				throw new RequestException(e.getMessage(), e);
+			}
+		}
 		TokenResponse tokenResponse = null;
 		try {
-			tokenResponse = OIDCTokenResponseParser.parse(httpResponse);
+			tokenResponse = AccessTokenResponse.parse(httpResponse);
 		} catch (ParseException e) {
 			logger.log(Level.INFO, e.getMessage(), e);
 			throw new ResponseException(e.getMessage(), e);
 		}
-		if (tokenResponse.indicatesSuccess()) {
-			return tokenResponse.toSuccessResponse().toJSONObject();
-		}
-		return tokenResponse.toErrorResponse().toJSONObject();
+
+		return tokenResponse;
+		// if (tokenResponse.indicatesSuccess()) {
+		// return tokenResponse.toSuccessResponse().toJSONObject();
+		// }
+		// return tokenResponse.toErrorResponse().toJSONObject();
 	}
 	
 	/**
