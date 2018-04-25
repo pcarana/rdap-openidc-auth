@@ -3,6 +3,7 @@ package mx.nic.rdap.auth.openidc;
 import java.net.URI;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.logging.Logger;
@@ -176,9 +177,14 @@ public class AuthenticationFlow {
 	 */
 	public static Set<String> getPurposeAsRoles(UserInfo userInfo) {
 		Set<String> roles = new HashSet<String>();
-		if (userInfo.getClaim(PURPOSE_CLAIM) != null) {
-			// Use them as lowercase
-			roles.add(userInfo.getStringClaim(PURPOSE_CLAIM).toLowerCase());
+		String claim = userInfo.getStringClaim(PURPOSE_CLAIM);
+		if (claim != null) {
+			roles.add(claim.toLowerCase());
+			return roles;
+		}
+		List<String> claims = userInfo.getStringListClaim(PURPOSE_CLAIM);
+		if (claims != null) {
+			roles.addAll(claims);
 		}
 		return roles;
 	}
