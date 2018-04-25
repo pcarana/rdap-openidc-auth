@@ -42,6 +42,7 @@ import com.nimbusds.openid.connect.sdk.ClaimsRequest;
 import com.nimbusds.openid.connect.sdk.Nonce;
 import com.nimbusds.openid.connect.sdk.OIDCTokenResponse;
 import com.nimbusds.openid.connect.sdk.OIDCTokenResponseParser;
+import com.nimbusds.openid.connect.sdk.Prompt;
 import com.nimbusds.openid.connect.sdk.UserInfoRequest;
 import com.nimbusds.openid.connect.sdk.UserInfoResponse;
 import com.nimbusds.openid.connect.sdk.UserInfoSuccessResponse;
@@ -79,13 +80,13 @@ public class Core {
 		Scope scope = Scope.parse(scopeCollection);
 		ClaimsRequest claims = new ClaimsRequest();
 		claims.addUserInfoClaim("purpose");
-		// The origin URI is used as the state to remember from where the request was
-		// made
+		Prompt prompt = new Prompt(Prompt.Type.LOGIN);
+		// The origin URI is used as the state to remember from where the request was made
 		State state = new State(Base64.encode(originURI).toString());
 		Nonce nonce = new Nonce();
 		AuthenticationRequest req = new AuthenticationRequest(authorizationEndpoint,
 				new ResponseType(ResponseType.Value.CODE), null, scope, clientID, clientRedirect, state, nonce, null,
-				null, -1, null, null, null, userId, null, claims, null, null, null, null);
+				prompt, -1, null, null, null, userId, null, claims, null, null, null, null);
 		return req.toURI();
 	}
 	
