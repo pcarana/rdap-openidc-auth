@@ -2,6 +2,8 @@ package mx.nic.rdap.auth.openidc.servlet;
 
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 
 import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.HttpServlet;
@@ -42,6 +44,13 @@ public class TokensRevokeServlet extends HttpServlet {
 
 		if (parameter == null || token == null) {
 			response.sendError(HttpServletResponse.SC_BAD_REQUEST, "empty or null id and/or token parameters.");
+			return;
+		}
+
+		try {
+			token = new String(Base64.getUrlDecoder().decode(token), StandardCharsets.UTF_8);
+		} catch (IllegalArgumentException e) {
+			response.sendError(HttpServletResponse.SC_BAD_REQUEST, e.getMessage());
 			return;
 		}
 
