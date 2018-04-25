@@ -54,6 +54,9 @@ public class SecurityRealm extends AuthorizingRealm {
 
 	@Override
 	protected AuthorizationInfo doGetAuthorizationInfo(PrincipalCollection principals) {
+		if (principals.fromRealm(getName()).isEmpty()) {
+			return null;
+		}
 		UserInfo userInfo = (UserInfo) principals.getPrimaryPrincipal();
 		Set<String> roles = AuthenticationFlow.getPurposeAsRoles(userInfo);
 		SimpleAuthorizationInfo info = new SimpleAuthorizationInfo(roles);
