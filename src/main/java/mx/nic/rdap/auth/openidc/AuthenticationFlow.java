@@ -184,7 +184,7 @@ public class AuthenticationFlow {
 		}
 		List<String> claims = userInfo.getStringListClaim(PURPOSE_CLAIM);
 		if (claims != null) {
-			roles.addAll(claims);
+			claims.forEach(val -> roles.add(val.toLowerCase()));
 		}
 		return roles;
 	}
