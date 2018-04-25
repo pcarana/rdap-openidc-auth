@@ -102,6 +102,10 @@ public class TokensServlet extends HttpServlet {
 		// TODO: discover OP with id
 
 		OpenIDCProvider provider = Configuration.getProvider();
+		if (provider.getMetadata().getRevocationEndpointURI() == null) {
+			response.sendError(HttpServletResponse.SC_NOT_IMPLEMENTED, "Token revocation isn't supported");
+			return;
+		}
 		String userId = tokenParams.getId();
 		String location = AuthenticationFlow.getAuthenticationLocation(userId, request, provider);
 
