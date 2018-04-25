@@ -3,7 +3,7 @@ package mx.nic.rdap.auth.openidc.shiro.token;
 import org.apache.shiro.authc.AuthenticationToken;
 
 import com.nimbusds.oauth2.sdk.token.AccessToken;
-import com.nimbusds.oauth2.sdk.token.AccessTokenType;
+import com.nimbusds.oauth2.sdk.token.BearerAccessToken;
 import com.nimbusds.openid.connect.sdk.token.OIDCTokens;
 
 public class CustomOIDCToken implements AuthenticationToken {
@@ -16,18 +16,7 @@ public class CustomOIDCToken implements AuthenticationToken {
 	private OIDCTokens oidcTokens;
 	
 	public CustomOIDCToken(String idToken, String accessToken) {
-		AccessToken accessTokenObj = new AccessToken(AccessTokenType.BEARER, accessToken) {
-			
-			/**
-			 * Serial version
-			 */
-			private static final long serialVersionUID = 1L;
-
-			@Override
-			public String toAuthorizationHeader() {
-				return this.getType().getValue().concat(" ").concat(this.getValue());
-			}
-		};
+		AccessToken accessTokenObj = new BearerAccessToken(accessToken);
 		oidcTokens = new OIDCTokens(idToken, accessTokenObj, null);
 	}
 

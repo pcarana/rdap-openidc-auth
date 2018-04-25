@@ -1,5 +1,9 @@
 package mx.nic.rdap.auth.openidc.shiro;
 
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
+import java.util.Base64.Decoder;
+
 import javax.servlet.ServletRequest;
 import javax.servlet.ServletResponse;
 import javax.servlet.http.HttpServletResponse;
@@ -40,10 +44,19 @@ public class IdentifierFilter extends AuthenticatingFilter {
 		if (request.getAttribute(Configuration.USER_INFO_ATTR) != null) {
 			return new UserInfoToken(request);
 		}
-		// FIXME The access_token also may be at the Authorization Header (value = "Bearer <the_code>"
+		// FIXME The access_token also may be at the Authorization Header (value = "Bearer <the_code>")
 		if (request.getParameter(ID_TOKEN_PARAM) != null && request.getParameter(ACCESS_TOKEN_PARAM) != null) {
-			return new CustomOIDCToken(request.getParameter(ID_TOKEN_PARAM).trim(),
-					request.getParameter(ACCESS_TOKEN_PARAM).trim());
+
+			try {
+				Decoder decoder = Base64.getUrlDecoder();
+				String idToken = new String(decoder.decode(request.getParameter(ID_TOKEN_PARAM).trim()),
+						StandardCharsets.UTF_8);
+				String accessToken = new String(decoder.decode(request.getParameter(ACCESS_TOKEN_PARAM).trim()),
+						StandardCharsets.UTF_8);
+				return new CustomOIDCToken(idToken, accessToken);
+			} catch (IllegalArgumentException e) {
+				throw new ResponseException(HttpServletResponse.SC_BAD_REQUEST, "Invalid token parameters", e);
+			}
 		}
 		return null;
 	}
