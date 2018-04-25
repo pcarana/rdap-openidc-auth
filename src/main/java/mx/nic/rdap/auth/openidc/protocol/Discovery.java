@@ -51,7 +51,6 @@ public class Discovery {
 		try {
 			httpResponse = request.toHTTPRequest().send();
 		} catch (IOException e) {
-			logger.log(Level.INFO, e.getMessage(), e);
 			throw new RequestException(e.getMessage(), e);
 		}
 		if (!httpResponse.indicatesSuccess()) {
@@ -61,7 +60,6 @@ public class Discovery {
 		try {
 			return OIDCProviderMetadata.parse(httpResponse.getContentAsJSONObject());
 		} catch (ParseException e) {
-			logger.log(Level.INFO, e.getMessage(), e);
 			// FIXME There's a known issue when parsing Gluu server data, this an ugly patch =/
 			try {
 				JSONObject json = httpResponse.getContentAsJSONObject();
@@ -70,7 +68,7 @@ public class Discovery {
 				return OIDCProviderMetadata.parse(json);
 			} catch (ParseException e2) {
 				// This will be another unexpected problem
-				logger.log(Level.INFO, e.getMessage(), e);
+				logger.log(Level.SEVERE, e.getMessage(), e);
 				throw new ResponseException(e.getMessage(), e);
 			}
 		}
