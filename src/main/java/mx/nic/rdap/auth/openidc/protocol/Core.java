@@ -300,7 +300,7 @@ public class Core {
 	public static JSONObject revokeToken(OpenIDCProvider provider, Token token) throws RequestException, ResponseException {
 		ClientID client = new ClientID(provider.getId());
 		Secret secret = new Secret(provider.getSecret());
-		URI tokenEndpoint = provider.getMetadata().getTokenEndpointURI();
+		URI tokenEndpoint = provider.getMetadata().getRevocationEndpointURI();
 		
 		ClientSecretBasic clientSecretBasic = new ClientSecretBasic(client, secret);
 		TokenRevocationRequest revokeReq = new TokenRevocationRequest(tokenEndpoint, clientSecretBasic, token);
