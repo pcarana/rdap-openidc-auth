@@ -12,6 +12,7 @@ import javax.servlet.http.HttpServletResponse;
 
 import mx.nic.rdap.auth.openidc.AuthenticationFlow;
 import mx.nic.rdap.auth.openidc.Configuration;
+import mx.nic.rdap.auth.openidc.OpenIDCProvider;
 import mx.nic.rdap.auth.openidc.exception.RequestException;
 import mx.nic.rdap.auth.openidc.exception.ResponseException;
 import net.minidev.json.JSONObject;
@@ -39,6 +40,11 @@ public class TokensRevokeServlet extends HttpServlet {
 
 	@Override
 	protected void doGet(HttpServletRequest request, HttpServletResponse response) throws IOException {
+		OpenIDCProvider provider = Configuration.getProvider();
+		if (provider.getMetadata().getRevocationEndpointURI() == null) {
+			response.sendError(HttpServletResponse.SC_NOT_IMPLEMENTED, "Token revocation isn't supported");
+			return;
+		}
 		String parameter = sanitizeParameter(request.getParameter("id"));
 		String token = sanitizeParameter(request.getParameter("token"));
 
@@ -56,7 +62,7 @@ public class TokensRevokeServlet extends HttpServlet {
 
 		JSONObject tokenRevokeJSON = null;
 		try {
-			tokenRevokeJSON = AuthenticationFlow.getTokenRevokeJSON(token, Configuration.getProvider());
+			tokenRevokeJSON = AuthenticationFlow.getTokenRevokeJSON(token, provider);
 		} catch (RequestException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
