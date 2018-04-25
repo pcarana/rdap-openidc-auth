@@ -1,6 +1,7 @@
 package mx.nic.rdap.auth.openidc.servlet;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.Base64.Encoder;
 
@@ -42,7 +43,6 @@ public class TokensServlet extends HttpServlet {
 	@Override
 	protected void doGet(HttpServletRequest request, HttpServletResponse response)
 			throws IOException, ServletException {
-		// FIXME Complete..
 
 		TokenQueryParams tokenParams = null;
 		try {
@@ -79,7 +79,7 @@ public class TokensServlet extends HttpServlet {
 		boolean parseBoolean = Boolean.parseBoolean(refresh);
 
 		if (refreshToken != null)
-			refreshToken = new String(Base64.getUrlDecoder().decode(refreshToken));
+			refreshToken = new String(Base64.getUrlDecoder().decode(refreshToken), StandardCharsets.UTF_8);
 
 		return new TokenQueryParams(id, parseBoolean, refreshToken, code, state);
 	}
@@ -103,7 +103,6 @@ public class TokensServlet extends HttpServlet {
 
 		OpenIDCProvider provider = Configuration.getProvider();
 		String userId = tokenParams.getId();
-		// TODO boolean isRefreshSet;
 		String location = AuthenticationFlow.getAuthenticationLocation(userId, request, provider);
 
 		response.sendRedirect(location);
@@ -152,8 +151,10 @@ public class TokensServlet extends HttpServlet {
 		object.add("rdapConformance", arrBuilder);
 
 		Encoder urlEncoder = Base64.getUrlEncoder();
-		object.add("access_token", urlEncoder.encodeToString(json.getAsString("access_token").getBytes()));
-		object.add("refresh_token", urlEncoder.encodeToString(json.getAsString("refresh_token").getBytes()));
+		object.add("access_token",
+				urlEncoder.encodeToString(json.getAsString("access_token").getBytes(StandardCharsets.UTF_8)));
+		object.add("refresh_token",
+				urlEncoder.encodeToString(json.getAsString("refresh_token").getBytes(StandardCharsets.UTF_8)));
 		object.add("token_type", json.getAsString("token_type"));
 		object.add("expires_in", json.getAsString("expires_in"));
 
@@ -194,7 +195,8 @@ public class TokensServlet extends HttpServlet {
 
 		response.setContentType("application/json");
 		if (token != null && token.indicatesSuccess()) {
-			processAuthTokenResponse(token.toSuccessResponse().toJSONObject(), request, response);
+			processAuthTokenResponse(token.toSuccessResponse().toJSONObject(), request, response,
+					tokenParams.isRefresh());
 		} else {
 			if (token != null) {
 				TokenErrorResponse errorResponse = token.toErrorResponse();
@@ -212,7 +214,8 @@ public class TokensServlet extends HttpServlet {
 
 	}
 
-	private void processAuthTokenResponse(JSONObject json, HttpServletRequest request, HttpServletResponse response)
+	private void processAuthTokenResponse(JSONObject json, HttpServletRequest request, HttpServletResponse response,
+			boolean setRefreshToken)
 			throws IOException {
 		JsonObjectBuilder object = Json.createObjectBuilder();
 		JsonArrayBuilder arrBuilder = Json.createArrayBuilder();
@@ -221,12 +224,15 @@ public class TokensServlet extends HttpServlet {
 		object.add("rdapConformance", arrBuilder);
 
 		Encoder urlEncoder = Base64.getUrlEncoder();
-		object.add("access_token", urlEncoder.encodeToString(json.getAsString("access_token").getBytes()));
-		object.add("id_token", urlEncoder.encodeToString(json.getAsString("id_token").getBytes()));
+		object.add("access_token",
+				urlEncoder.encodeToString(json.getAsString("access_token").getBytes(StandardCharsets.UTF_8)));
+		object.add("id_token",
+				urlEncoder.encodeToString(json.getAsString("id_token").getBytes(StandardCharsets.UTF_8)));
 		object.add("token_type", json.getAsString("token_type"));
 		object.add("expires_in", json.getAsString("expires_in"));
-		if (json.containsKey("refresh_token")) {
-			object.add("refresh_token", urlEncoder.encodeToString(json.getAsString("refresh_token").getBytes()));
+		if (json.containsKey("refresh_token") && setRefreshToken) {
+			object.add("refresh_token",
+					urlEncoder.encodeToString(json.getAsString("refresh_token").getBytes(StandardCharsets.UTF_8)));
 		}
 
 		response.getWriter().print(object.build().toString());
