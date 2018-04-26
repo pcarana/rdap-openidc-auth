@@ -118,7 +118,7 @@ public class Core {
 	}
 	
 	/**
-	 * Get the tokens as a JSON Object
+	 * Get the tokens response from an auth code
 	 * 
 	 * @param provider
 	 * @param authCode
@@ -126,15 +126,6 @@ public class Core {
 	 * @throws RequestException
 	 * @throws ResponseException
 	 */
-	public static JSONObject getJSONTokensFromAuthCode(OpenIDCProvider provider, AuthorizationCode authCode)
-			throws RequestException, ResponseException {
-		TokenResponse tokenResponse = getTokenResponse(provider, authCode);
-		if (tokenResponse.indicatesSuccess()) {
-			return tokenResponse.toSuccessResponse().toJSONObject();
-		}
-		return tokenResponse.toErrorResponse().toJSONObject();
-	}
-	
 	public static TokenResponse getTokenResponseFromAuthCode(OpenIDCProvider provider, AuthorizationCode authCode)
 			throws RequestException, ResponseException {
 		TokenResponse tokenResponse = getTokenResponse(provider, authCode);

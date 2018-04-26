@@ -103,7 +103,7 @@ public class AuthenticationFlow {
 	}
 	
 	/**
-	 * Return the token as a JSON Object, based on the authorization code sent by the OP
+	 * Return the token as a TokenResponse Object, based on the authorization code sent by the OP
 	 * 
 	 * @param requestQuery
 	 * @param provider
@@ -111,11 +111,6 @@ public class AuthenticationFlow {
 	 * @throws RequestException
 	 * @throws ResponseException
 	 */
-	public static JSONObject getTokenJSON(String requestQuery, OpenIDCProvider provider) throws RequestException, ResponseException {
-		AuthorizationCode authCode = Core.parseAuthorizationCode(requestQuery);
-		return Core.getJSONTokensFromAuthCode(provider, authCode);
-	}
-	
 	public static TokenResponse getTokenResponse(String requestQuery, OpenIDCProvider provider)
 			throws RequestException, ResponseException {
 		AuthorizationCode authCode = Core.parseAuthorizationCode(requestQuery);
@@ -123,7 +118,7 @@ public class AuthenticationFlow {
 	}
 
 	/**
-	 * Get a token refresh response as a JSON Object
+	 * Get a token refresh response
 	 * 
 	 * @param refreshToken
 	 * @param provider
@@ -131,7 +126,7 @@ public class AuthenticationFlow {
 	 * @throws RequestException
 	 * @throws ResponseException
 	 */
-	public static TokenResponse getTokenRefreshJSON(String refreshToken, OpenIDCProvider provider)
+	public static TokenResponse getTokenRefreshResponse(String refreshToken, OpenIDCProvider provider)
 			throws RequestException, ResponseException {
 		RefreshToken refreshTokenObj = new RefreshToken(refreshToken);
 		Set<String> scopes = getRequestScopes(provider);

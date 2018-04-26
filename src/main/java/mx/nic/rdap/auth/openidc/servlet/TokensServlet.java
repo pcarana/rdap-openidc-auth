@@ -113,7 +113,7 @@ public class TokensServlet extends HttpServlet {
 			TokenQueryParams tokenParams) throws IOException {
 		OpenIDCProvider provider = Configuration.getProvider();
 		try {
-			TokenResponse tokenResponse = AuthenticationFlow.getTokenRefreshJSON(tokenParams.getRefreshToken(),
+			TokenResponse tokenResponse = AuthenticationFlow.getTokenRefreshResponse(tokenParams.getRefreshToken(),
 					provider);
 			response.setContentType("application/json");
 			if (tokenResponse != null && tokenResponse.indicatesSuccess()) {
