@@ -107,6 +107,7 @@ public class Core {
 			// Use a relative URI
 			authResponse = AuthenticationResponseParser.parse(URI.create("https:///?".concat(requestQuery)));
 		} catch (ParseException e) {
+			logger.log(Level.INFO, e.getMessage());
 			throw new ResponseException(e.getMessage(), e);
 		}
 		if (!authResponse.indicatesSuccess()) {
@@ -180,14 +181,14 @@ public class Core {
 		try {
 			httpResponse = tokenReq.toHTTPRequest().send();
 		} catch (SerializeException | IOException e) {
-			logger.log(Level.INFO, e.getMessage(), e);
+			logger.log(Level.INFO, e.getMessage());
 			throw new RequestException(e.getMessage(), e);
 		}
 		
 		try {
 			return OIDCTokenResponseParser.parse(httpResponse);
 		} catch (ParseException e) {
-			logger.log(Level.INFO, e.getMessage(), e);
+			logger.log(Level.INFO, e.getMessage());
 			throw new ResponseException(e.getMessage(), e);
 		}
 	}
@@ -216,7 +217,7 @@ public class Core {
 		try {
 			httpResponse = tokenReq.toHTTPRequest().send();
 		} catch (SerializeException | IOException e) {
-			logger.log(Level.INFO, e.getMessage(), e);
+			logger.log(Level.INFO, e.getMessage());
 			throw new RequestException(e.getMessage(), e);
 		}
 		
@@ -226,7 +227,7 @@ public class Core {
 				throw new ResponseException(HTTPResponse.SC_BAD_REQUEST,
 						httpResponse.getContentAsJSONObject().getAsString("error_description"));
 			} catch (ParseException e) {
-				logger.log(Level.INFO, e.getMessage(), e);
+				logger.log(Level.INFO, e.getMessage());
 				throw new RequestException(e.getMessage(), e);
 			}
 		}
@@ -234,15 +235,11 @@ public class Core {
 		try {
 			tokenResponse = AccessTokenResponse.parse(httpResponse);
 		} catch (ParseException e) {
-			logger.log(Level.INFO, e.getMessage(), e);
+			logger.log(Level.INFO, e.getMessage());
 			throw new ResponseException(e.getMessage(), e);
 		}
 
 		return tokenResponse;
-		// if (tokenResponse.indicatesSuccess()) {
-		// return tokenResponse.toSuccessResponse().toJSONObject();
-		// }
-		// return tokenResponse.toErrorResponse().toJSONObject();
 	}
 	
 	/**
@@ -262,7 +259,7 @@ public class Core {
 		try {
 			jwkSetURL = provider.getMetadata().getJWKSetURI().toURL();
 		} catch (MalformedURLException e) {
-			logger.log(Level.INFO, e.getMessage(), e);
+			logger.log(Level.INFO, e.getMessage());
 			throw new RequestException(e.getMessage(), e);
 		}
 
@@ -285,7 +282,7 @@ public class Core {
 			// otherwise the UserInfo will be null (right now this wont happen since
 			// the token request is made asking for the user claims)
 		} catch (BadJOSEException | JOSEException e) {
-			logger.log(Level.INFO, e.getMessage(), e);
+			logger.log(Level.INFO, e.getMessage());
 			throw new ResponseException(HttpServletResponse.SC_BAD_REQUEST, e.getMessage(), e);
 		}
 	}
@@ -310,7 +307,7 @@ public class Core {
 		try {
 			httpResponse = revokeReq.toHTTPRequest().send();
 		} catch (SerializeException | IOException e) {
-			logger.log(Level.INFO, e.getMessage(), e);
+			logger.log(Level.INFO, e.getMessage());
 			throw new RequestException(e.getMessage(), e);
 		}
 		
@@ -318,7 +315,7 @@ public class Core {
 		try {
 			tokenResponse = OIDCTokenResponseParser.parse(httpResponse);
 		} catch (ParseException e) {
-			logger.log(Level.INFO, e.getMessage(), e);
+			logger.log(Level.INFO, e.getMessage());
 			throw new ResponseException(e.getMessage(), e);
 		}
 		if (tokenResponse.indicatesSuccess()) {
@@ -341,14 +338,14 @@ public class Core {
 		try {
 			httpResponse = userInfoReq.toHTTPRequest().send();
 		} catch (IOException e) {
-			logger.log(Level.INFO, e.getMessage(), e);
+			logger.log(Level.INFO, e.getMessage());
 			throw new RequestException(e.getMessage(), e);
 		}
 		UserInfoResponse userInfoResponse = null;
 		try {
 			userInfoResponse = UserInfoResponse.parse(httpResponse);
 		} catch (ParseException e) {
-			logger.log(Level.INFO, e.getMessage(), e);
+			logger.log(Level.INFO, e.getMessage());
 			throw new ResponseException(e.getMessage(), e);
 		}
 		
@@ -388,6 +385,7 @@ public class Core {
 				break;
 			}
 		}
+		logger.log(Level.INFO, errorObj.toJSONObject().toJSONString());
 		return new ResponseException(code, message);
 	}
 
