@@ -35,7 +35,18 @@ public class IdentifierFilter extends AuthenticatingFilter {
 			httpResponse.sendRedirect(location);
 			return false;
 		}
-		return super.preHandle(request, response);
+		try {
+			return super.preHandle(request, response);
+		} catch (Exception e) {
+			// Handle expected exceptions
+			if (e instanceof ResponseException) {
+				ResponseException responseException = (ResponseException) e;
+				HttpServletResponse httpResponse = (HttpServletResponse) response;
+				httpResponse.sendError(responseException.getCode(), responseException.getMessage());
+				return false;
+			}
+			throw e;
+		}
 	}
 	
 	@Override
@@ -46,7 +57,6 @@ public class IdentifierFilter extends AuthenticatingFilter {
 		}
 		// FIXME The access_token also may be at the Authorization Header (value = "Bearer <the_code>")
 		if (request.getParameter(ID_TOKEN_PARAM) != null && request.getParameter(ACCESS_TOKEN_PARAM) != null) {
-
 			try {
 				Decoder decoder = Base64.getUrlDecoder();
 				String idToken = new String(decoder.decode(request.getParameter(ID_TOKEN_PARAM).trim()),
