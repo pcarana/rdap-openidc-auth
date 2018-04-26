@@ -49,6 +49,8 @@ import com.nimbusds.openid.connect.sdk.Prompt;
 import com.nimbusds.openid.connect.sdk.UserInfoRequest;
 import com.nimbusds.openid.connect.sdk.UserInfoResponse;
 import com.nimbusds.openid.connect.sdk.UserInfoSuccessResponse;
+import com.nimbusds.openid.connect.sdk.claims.AccessTokenHash;
+import com.nimbusds.openid.connect.sdk.claims.IDTokenClaimsSet;
 import com.nimbusds.openid.connect.sdk.claims.UserInfo;
 import com.nimbusds.openid.connect.sdk.token.OIDCTokens;
 import com.nimbusds.openid.connect.sdk.validators.IDTokenValidator;
@@ -269,9 +271,19 @@ public class Core {
 		IDTokenValidator validator = new IDTokenValidator(issuer, client, jwsAlg, jwkSetURL, retriever);
 		JWT idToken = tokens.getIDToken();
 		try {
-			validator.validate(idToken, null);
+			IDTokenClaimsSet claimsSet = validator.validate(idToken, null);
+			// Optional value, validate if present
+			AccessTokenHash atHash = claimsSet.getAccessTokenHash();
+			if (atHash != null) {
+				AccessTokenHash sentHash = AccessTokenHash.compute(tokens.getAccessToken(), jwsAlg);
+				if (!atHash.equals(sentHash)) {
+					logger.log(Level.INFO, "Invalid access token");
+					throw new ResponseException(HttpServletResponse.SC_BAD_REQUEST, "Invalid access token");
+				}
+			}
 			// TODO Verify that the validation doesn't return Claims,
-			// otherwise the UserInfo will be null
+			// otherwise the UserInfo will be null (right now this wont happen since
+			// the token request is made asking for the user claims)
 		} catch (BadJOSEException | JOSEException e) {
 			logger.log(Level.INFO, e.getMessage(), e);
 			throw new ResponseException(HttpServletResponse.SC_BAD_REQUEST, e.getMessage(), e);
