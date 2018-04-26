@@ -115,7 +115,7 @@ public class IdentifierFilter extends AuthenticatingFilter {
 			ResponseException resp = (ResponseException) e.getCause();
 			httpResponse.setStatus(resp.getCode());
 		} else {
-			httpResponse.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+			httpResponse.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
 		}
 		return false;
 	}

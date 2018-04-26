@@ -8,6 +8,8 @@ import java.util.Collection;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import javax.servlet.http.HttpServletResponse;
+
 import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.proc.BadJOSEException;
@@ -270,12 +272,9 @@ public class Core {
 			validator.validate(idToken, null);
 			// TODO Verify that the validation doesn't return Claims,
 			// otherwise the UserInfo will be null
-		} catch (BadJOSEException e) {
+		} catch (BadJOSEException | JOSEException e) {
 			logger.log(Level.INFO, e.getMessage(), e);
-			throw new ResponseException(e.getMessage(), e);
-		} catch (JOSEException e) {
-			logger.log(Level.INFO, e.getMessage(), e);
-			throw new RequestException(e.getMessage(), e);
+			throw new ResponseException(HttpServletResponse.SC_BAD_REQUEST, e.getMessage(), e);
 		}
 	}
 	

@@ -22,7 +22,7 @@ public class CustomOIDCToken implements AuthenticationToken {
 
 	@Override
 	public Object getPrincipal() {
-		return null;
+		return oidcTokens;
 	}
 
 	@Override
