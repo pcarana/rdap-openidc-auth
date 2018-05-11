@@ -2,6 +2,7 @@ package mx.nic.rdap.auth.openidc.servlet;
 
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 
@@ -11,10 +12,10 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import mx.nic.rdap.auth.openidc.AuthenticationFlow;
-import mx.nic.rdap.auth.openidc.Configuration;
 import mx.nic.rdap.auth.openidc.OpenIDCProvider;
 import mx.nic.rdap.auth.openidc.exception.RequestException;
 import mx.nic.rdap.auth.openidc.exception.ResponseException;
+import mx.nic.rdap.auth.openidc.protocol.Discovery;
 import net.minidev.json.JSONObject;
 
 /**
@@ -40,7 +41,18 @@ public class TokensRevokeServlet extends HttpServlet {
 
 	@Override
 	protected void doGet(HttpServletRequest request, HttpServletResponse response) throws IOException {
-		OpenIDCProvider provider = Configuration.getProvider();
+		OpenIDCProvider provider;
+		try {
+			provider = Discovery.discoverProvider(request.getParameter("id"));
+			if (provider == null) {
+				response.sendError(HttpServletResponse.SC_NOT_IMPLEMENTED, "OpenId Provider not supported");
+				return;
+			}
+		} catch (URISyntaxException e) {
+			response.sendError(HttpServletResponse.SC_BAD_REQUEST, e.getMessage());
+			return;
+		}
+
 		if (provider.getMetadata().getRevocationEndpointURI() == null) {
 			response.sendError(HttpServletResponse.SC_NOT_IMPLEMENTED, "Token revocation isn't supported");
 			return;
@@ -64,8 +76,8 @@ public class TokensRevokeServlet extends HttpServlet {
 		try {
 			tokenRevokeJSON = AuthenticationFlow.getTokenRevokeJSON(token, provider);
 		} catch (RequestException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+			response.sendError(HttpServletResponse.SC_BAD_REQUEST, e.getMessage());
+			return;
 		} catch (ResponseException e) {
 			response.sendError(e.getCode(), e.getMessage());
 			return;

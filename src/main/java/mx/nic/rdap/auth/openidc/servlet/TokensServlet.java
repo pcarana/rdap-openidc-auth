@@ -1,6 +1,7 @@
 package mx.nic.rdap.auth.openidc.servlet;
 
 import java.io.IOException;
+import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.Base64.Encoder;
@@ -19,10 +20,10 @@ import com.nimbusds.oauth2.sdk.TokenErrorResponse;
 import com.nimbusds.oauth2.sdk.TokenResponse;
 
 import mx.nic.rdap.auth.openidc.AuthenticationFlow;
-import mx.nic.rdap.auth.openidc.Configuration;
 import mx.nic.rdap.auth.openidc.OpenIDCProvider;
 import mx.nic.rdap.auth.openidc.exception.RequestException;
 import mx.nic.rdap.auth.openidc.exception.ResponseException;
+import mx.nic.rdap.auth.openidc.protocol.Discovery;
 import net.minidev.json.JSONObject;
 
 @WebServlet(name = "tokens", urlPatterns = { "/tokens" })
@@ -99,9 +100,18 @@ public class TokensServlet extends HttpServlet {
 
 	private void requestTokenProcess(HttpServletRequest request, HttpServletResponse response,
 			TokenQueryParams tokenParams) throws IOException {
-		// TODO: discover OP with id
+		OpenIDCProvider provider;
+		try {
+			provider = Discovery.discoverProvider(tokenParams.getId());
+			if (provider == null) {
+				response.sendError(HttpServletResponse.SC_NOT_IMPLEMENTED, "OpenId Provider not supported");
+				return;
+			}
+		} catch (URISyntaxException e) {
+			response.sendError(HttpServletResponse.SC_BAD_REQUEST, e.getMessage());
+			return;
+		}
 
-		OpenIDCProvider provider = Configuration.getProvider();
 		String userId = tokenParams.getId();
 		String location = AuthenticationFlow.getAuthenticationLocation(userId, request, provider);
 
@@ -111,7 +121,17 @@ public class TokensServlet extends HttpServlet {
 
 	private void requestRefreshToken(HttpServletRequest request, HttpServletResponse response,
 			TokenQueryParams tokenParams) throws IOException {
-		OpenIDCProvider provider = Configuration.getProvider();
+		OpenIDCProvider provider;
+		try {
+			provider = Discovery.discoverProvider(tokenParams.getId());
+			if (provider == null) {
+				response.sendError(HttpServletResponse.SC_NOT_IMPLEMENTED, "OpenId Provider not supported");
+				return;
+			}
+		} catch (URISyntaxException e) {
+			response.sendError(HttpServletResponse.SC_BAD_REQUEST, e.getMessage());
+			return;
+		}
 		try {
 			TokenResponse tokenResponse = AuthenticationFlow.getTokenRefreshResponse(tokenParams.getRefreshToken(),
 					provider);
@@ -180,9 +200,21 @@ public class TokensServlet extends HttpServlet {
 			return;
 		}
 
+		OpenIDCProvider provider;
+		try {
+			provider = Discovery.discoverProvider(tokenParams.getId());
+			if (provider == null) {
+				response.sendError(HttpServletResponse.SC_NOT_IMPLEMENTED, "OpenId Provider not supported");
+				return;
+			}
+		} catch (URISyntaxException e) {
+			response.sendError(HttpServletResponse.SC_BAD_REQUEST, e.getMessage());
+			return;
+		}
+
 		TokenResponse token = null;
 		try {
-			token = AuthenticationFlow.getTokenResponse(request.getQueryString(), Configuration.getProvider());
+			token = AuthenticationFlow.getTokenResponse(request.getQueryString(), provider);
 		} catch (Exception e) {
 			// Translate to HTTP Codes
 			if (e instanceof ResponseException) {

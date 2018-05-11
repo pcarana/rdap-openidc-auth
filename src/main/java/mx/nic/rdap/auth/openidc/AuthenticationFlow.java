@@ -23,7 +23,6 @@ import mx.nic.rdap.auth.openidc.exception.RequestException;
 import mx.nic.rdap.auth.openidc.exception.ResponseException;
 import mx.nic.rdap.auth.openidc.protocol.Core;
 import mx.nic.rdap.auth.openidc.protocol.Discovery;
-import mx.nic.rdap.auth.openidc.shiro.IdentifierFilter;
 import net.minidev.json.JSONObject;
 
 public class AuthenticationFlow {
@@ -32,7 +31,7 @@ public class AuthenticationFlow {
 	 * ID used to get the "purpose" claims
 	 */
 	private static final String PURPOSE_CLAIM = "purpose";
-	
+
 	public static Logger logger = Logger.getLogger(AuthenticationFlow.class.getName());
 
 	private AuthenticationFlow() {
@@ -40,14 +39,14 @@ public class AuthenticationFlow {
 	}
 
 	/**
-	 * Updates an OP provider metadata if it doesn't have any metadata already loaded
+	 * Updates an OP provider metadata if it doesn't have any metadata already
+	 * loaded
 	 * 
 	 * @param provider
 	 * @throws RequestException
 	 * @throws ResponseException
 	 */
-	public static void updateProviderMetadata(OpenIDCProvider provider)
-			throws RequestException, ResponseException {
+	public static void updateProviderMetadata(OpenIDCProvider provider) throws RequestException, ResponseException {
 		String providerURI = provider.getProviderURI();
 		if (provider.getMetadata() == null) {
 			OIDCProviderMetadata metadata = Discovery.getProviderMetadata(providerURI);
@@ -55,9 +54,10 @@ public class AuthenticationFlow {
 		}
 		// TODO Handle multiple providers
 	}
-	
+
 	/**
-	 * Return the location used to redirect the user in order to perform the OP authentication
+	 * Return the location used to redirect the user in order to perform the OP
+	 * authentication
 	 * 
 	 * @param request
 	 * @param provider
@@ -84,12 +84,13 @@ public class AuthenticationFlow {
 	 * @throws RequestException
 	 * @throws ResponseException
 	 */
-	public static UserInfo getUserInfoFromAuthCode(String requestQuery, OpenIDCProvider provider) throws RequestException, ResponseException {
+	public static UserInfo getUserInfoFromAuthCode(String requestQuery, OpenIDCProvider provider)
+			throws RequestException, ResponseException {
 		AuthorizationCode authCode = Core.parseAuthorizationCode(requestQuery);
 		OIDCTokens tokens = Core.getTokensFromAuthCode(provider, authCode);
 		return getUserInfoFromToken(tokens, provider);
 	}
-	
+
 	/**
 	 * Get the UserInfo based on the tokens (these are validated first at the OP)
 	 * 
@@ -97,13 +98,15 @@ public class AuthenticationFlow {
 	 * @return
 	 * @throws Exception
 	 */
-	public static UserInfo getUserInfoFromToken(OIDCTokens tokens, OpenIDCProvider provider) throws RequestException, ResponseException {
+	public static UserInfo getUserInfoFromToken(OIDCTokens tokens, OpenIDCProvider provider)
+			throws RequestException, ResponseException {
 		Core.verifyToken(provider, tokens);
 		return Core.getUserInfo(provider, tokens);
 	}
-	
+
 	/**
-	 * Return the token as a TokenResponse Object, based on the authorization code sent by the OP
+	 * Return the token as a TokenResponse Object, based on the authorization code
+	 * sent by the OP
 	 * 
 	 * @param requestQuery
 	 * @param provider
@@ -132,7 +135,7 @@ public class AuthenticationFlow {
 		Set<String> scopes = getRequestScopes(provider);
 		return Core.refreshToken(provider, scopes, refreshTokenObj);
 	}
-	
+
 	/**
 	 * Get a token revoke response as a JSON Object
 	 * 
@@ -142,9 +145,10 @@ public class AuthenticationFlow {
 	 * @throws RequestException
 	 * @throws ResponseException
 	 */
-	public static JSONObject getTokenRevokeJSON(String token, OpenIDCProvider provider) throws RequestException, ResponseException {
+	public static JSONObject getTokenRevokeJSON(String token, OpenIDCProvider provider)
+			throws RequestException, ResponseException {
 		Token tokenObject = new Token(token) {
-			
+
 			private static final long serialVersionUID = 1L;
 
 			@Override
@@ -153,7 +157,7 @@ public class AuthenticationFlow {
 				o.put("token", getValue());
 				return o;
 			}
-			
+
 			@Override
 			public Set<String> getParameterNames() {
 				Set<String> paramNames = new HashSet<>();
@@ -163,7 +167,7 @@ public class AuthenticationFlow {
 		};
 		return Core.revokeToken(provider, tokenObject);
 	}
-	
+
 	/**
 	 * Get the RDAP "purpose" claims as user roles
 	 * 
@@ -205,9 +209,9 @@ public class AuthenticationFlow {
 				// Remove the "id" parameter
 				Map<String, String[]> cleanMap = new HashMap<String, String[]>();
 				for (String key : httpRequest.getParameterMap().keySet()) {
-					if (!key.equals(IdentifierFilter.ID_PARAM)) {
-						cleanMap.put(key, httpRequest.getParameterMap().get(key));
-					}
+					// if (!key.equals(IdentifierFilter.ID_PARAM)) {
+					cleanMap.put(key, httpRequest.getParameterMap().get(key));
+					// }
 				}
 				sb.append("?");
 				cleanMap.forEach((k, v) -> {
@@ -230,16 +234,16 @@ public class AuthenticationFlow {
 			// sb.append(request.getServerPort());
 			// }
 			// if (request.getServletContext().getContextPath().isEmpty()) {
-			//	sb.append("/");
+			// sb.append("/");
 			// } else {
-			//	sb.append(request.getServletContext().getContextPath());
-			//}
+			// sb.append(request.getServletContext().getContextPath());
+			// }
 			// // Apparently the path is not available
 			// sb.append();
 		}
 		return sb.toString();
 	}
-	
+
 	/**
 	 * Get the set of scopes that the RP will request to the OP
 	 * 

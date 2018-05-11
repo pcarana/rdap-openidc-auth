@@ -15,7 +15,15 @@ public class CustomOIDCToken implements AuthenticationToken {
 	
 	private OIDCTokens oidcTokens;
 	
+	private String userId;
+
 	public CustomOIDCToken(String idToken, String accessToken) {
+		AccessToken accessTokenObj = new BearerAccessToken(accessToken);
+		oidcTokens = new OIDCTokens(idToken, accessTokenObj, null);
+	}
+
+	public CustomOIDCToken(String idToken, String accessToken, String userId) {
+		this.userId = userId;
 		AccessToken accessTokenObj = new BearerAccessToken(accessToken);
 		oidcTokens = new OIDCTokens(idToken, accessTokenObj, null);
 	}
@@ -28,5 +36,9 @@ public class CustomOIDCToken implements AuthenticationToken {
 	@Override
 	public Object getCredentials() {
 		return oidcTokens;
+	}
+
+	public String getUserId() {
+		return userId;
 	}
 }

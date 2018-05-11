@@ -1,5 +1,6 @@
 package mx.nic.rdap.auth.openidc.shiro;
 
+import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.Base64.Decoder;
@@ -16,6 +17,7 @@ import mx.nic.rdap.auth.openidc.AuthenticationFlow;
 import mx.nic.rdap.auth.openidc.Configuration;
 import mx.nic.rdap.auth.openidc.OpenIDCProvider;
 import mx.nic.rdap.auth.openidc.exception.ResponseException;
+import mx.nic.rdap.auth.openidc.protocol.Discovery;
 import mx.nic.rdap.auth.openidc.shiro.token.CustomOIDCToken;
 import mx.nic.rdap.auth.openidc.shiro.token.UserInfoToken;
 
@@ -27,16 +29,29 @@ public class IdentifierFilter extends AuthenticatingFilter {
 
 	@Override
 	protected boolean preHandle(ServletRequest request, ServletResponse response) throws Exception {
-		if (isValidParam(request, ID_PARAM)) {
-			OpenIDCProvider provider = Configuration.getProvider();
+		if (isValidParam(request, ID_PARAM) && !isValidParam(request, ID_TOKEN_PARAM)
+				&& !isValidParam(request, ACCESS_TOKEN_PARAM) && !isValidParam(request, "code")
+				&& !isValidParam(request, "state")) {
+
 			String userId = request.getParameter(ID_PARAM).trim();
+			OpenIDCProvider provider = Discovery.discoverProvider(userId);
+			if (provider == null) {
+				HttpServletResponse httpResponse = (HttpServletResponse) response;
+				httpResponse.sendError(HttpServletResponse.SC_NOT_IMPLEMENTED, "OpenId Provider not supported");
+				return false;
+			}
 			String location = AuthenticationFlow.getAuthenticationLocation(userId, request, provider);
 			HttpServletResponse httpResponse = (HttpServletResponse) response;
 			httpResponse.sendRedirect(location);
 			return false;
 		}
+
 		try {
 			return super.preHandle(request, response);
+		} catch (URISyntaxException e) {
+			HttpServletResponse httpResponse = (HttpServletResponse) response;
+			httpResponse.sendError(HttpServletResponse.SC_NOT_IMPLEMENTED, e.getMessage());
+			return false;
 		} catch (Exception e) {
 			// Handle expected exceptions
 			if (e instanceof ResponseException) {
@@ -63,7 +78,7 @@ public class IdentifierFilter extends AuthenticatingFilter {
 						StandardCharsets.UTF_8);
 				String accessToken = new String(decoder.decode(request.getParameter(ACCESS_TOKEN_PARAM).trim()),
 						StandardCharsets.UTF_8);
-				return new CustomOIDCToken(idToken, accessToken);
+				return new CustomOIDCToken(idToken, accessToken, request.getParameter(ID_PARAM));
 			} catch (IllegalArgumentException e) {
 				throw new ResponseException(HttpServletResponse.SC_BAD_REQUEST, "Invalid token parameters", e);
 			}

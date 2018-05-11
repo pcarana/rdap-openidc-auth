@@ -1,5 +1,7 @@
 package mx.nic.rdap.auth.openidc.shiro;
 
+import java.net.URISyntaxException;
+import java.util.List;
 import java.util.Set;
 
 import org.apache.shiro.authc.AuthenticationException;
@@ -21,15 +23,13 @@ import mx.nic.rdap.auth.openidc.Configuration;
 import mx.nic.rdap.auth.openidc.OpenIDCProvider;
 import mx.nic.rdap.auth.openidc.exception.RequestException;
 import mx.nic.rdap.auth.openidc.exception.ResponseException;
+import mx.nic.rdap.auth.openidc.protocol.Discovery;
 import mx.nic.rdap.auth.openidc.shiro.token.CustomOIDCToken;
 import mx.nic.rdap.auth.openidc.shiro.token.UserInfoToken;
 
 public class SecurityRealm extends AuthorizingRealm {
 	
-	protected String clientId;
-	protected String clientSecret;
-	protected String clientCallbackURI;
-	protected String providerURI;
+	protected List<OpenIDCProvider> providers;
 
 	public SecurityRealm() {
 		super();
@@ -38,13 +38,16 @@ public class SecurityRealm extends AuthorizingRealm {
 
 	@Override
 	public void onInit() {
-		OpenIDCProvider provider = new OpenIDCProvider(clientId, clientSecret, clientCallbackURI, providerURI);
-		Configuration.setProvider(provider);
-		try {
-			AuthenticationFlow.updateProviderMetadata(provider);
-		} catch (RequestException | ResponseException e) {
-			throw new RuntimeException(e.getMessage(), e);
-		}
+		// OpenIDCProvider provider = new OpenIDCProvider(clientId, clientSecret,
+		// clientCallbackURI, providerURI);
+
+		// OpenIDCProvider provider = providers.get("https://auth.viagenie.ca/oxauth/");
+		Configuration.initProviders(providers);
+		// try {
+		// AuthenticationFlow.updateProviderMetadata(provider);
+		// } catch (RequestException | ResponseException e) {
+		// throw new RuntimeException(e.getMessage(), e);
+		// }
 	}
 
 	@Override
@@ -69,8 +72,19 @@ public class SecurityRealm extends AuthorizingRealm {
 			CustomOIDCToken customToken = (CustomOIDCToken) token;
 			OIDCTokens oidcTokens = (OIDCTokens) customToken.getCredentials();
 			// Now the token will be a UserInfoToken
+
+			OpenIDCProvider discoverProvider;
 			try {
-				UserInfo userInfo = AuthenticationFlow.getUserInfoFromToken(oidcTokens, Configuration.getProvider());
+				discoverProvider = Discovery.discoverProvider(customToken.getUserId());
+				if (discoverProvider == null) {
+					throw new AuthenticationException("No discovery provider for user: " + customToken.getUserId());
+				}
+			} catch (URISyntaxException e) {
+				throw new AuthenticationException(e.getMessage(), e);
+			}
+
+			try {
+				UserInfo userInfo = AuthenticationFlow.getUserInfoFromToken(oidcTokens, discoverProvider);
 				token = new UserInfoToken(userInfo);
 			} catch (RequestException | ResponseException e) {
 				throw new AuthenticationException(e.getMessage(), e);
@@ -87,36 +101,13 @@ public class SecurityRealm extends AuthorizingRealm {
 		return authInfo;
 	}
 
-	public String getClientId() {
-		return clientId;
+	public List<OpenIDCProvider> getProviders() {
+		return providers;
 	}
 
-	public void setClientId(String clientId) {
-		this.clientId = clientId;
+	public void setProviders(List<OpenIDCProvider> providers) {
+		this.providers = providers;
 	}
 
-	public String getClientSecret() {
-		return clientSecret;
-	}
-
-	public void setClientSecret(String clientSecret) {
-		this.clientSecret = clientSecret;
-	}
-
-	public String getClientCallbackURI() {
-		return clientSecret;
-	}
-
-	public void setClientCallbackURI(String clientCallbackURI) {
-		this.clientCallbackURI = clientCallbackURI;
-	}
-
-	public String getProviderURI() {
-		return providerURI;
-	}
-
-	public void setProviderURI(String providerURI) {
-		this.providerURI = providerURI;
-	}
 
 }

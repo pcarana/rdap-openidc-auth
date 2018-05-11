@@ -1,6 +1,7 @@
 package mx.nic.rdap.auth.openidc.protocol;
 
 import java.io.IOException;
+import java.net.URISyntaxException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -11,6 +12,7 @@ import com.nimbusds.openid.connect.sdk.op.OIDCProviderConfigurationRequest;
 import com.nimbusds.openid.connect.sdk.op.OIDCProviderMetadata;
 
 import mx.nic.rdap.auth.openidc.Configuration;
+import mx.nic.rdap.auth.openidc.OpenIDCProvider;
 import mx.nic.rdap.auth.openidc.exception.RequestException;
 import mx.nic.rdap.auth.openidc.exception.ResponseException;
 import net.minidev.json.JSONObject;
@@ -23,16 +25,22 @@ public class Discovery {
 		// Empty
 	}
 
-	/**
-	 * Discover a user OP provider based on its ID
-	 * 
-	 * @param userId
-	 * @return
-	 */
-	public static String discoverProvider(String userId) {
-		// FIXME Not implemented by the library, use manually configured URI
-		String providerUri = Configuration.getProvider().getProviderURI();
-		return providerUri;
+	// /**
+	// * Discover a user OP provider based on its ID
+	// *
+	// * @param userId
+	// * @return
+	// */
+	// public static String discoverProvider(String userId) {
+	// // FIXME Not implemented by the library, use manually configured URI
+	// String providerUri = Configuration.getProvider().getProviderURI();
+	// return providerUri;
+	// }
+
+	public static OpenIDCProvider discoverProvider(String userId) throws URISyntaxException {
+		WebFingerRequest webFingerRequest = IssuerDiscoveryUtils.getWebFingerRequest(userId);
+
+		return Configuration.getProvider(webFingerRequest);
 	}
 
 	/**

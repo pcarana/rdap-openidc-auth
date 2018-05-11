@@ -62,7 +62,7 @@ public class TokenQueryParams {
 		if (id == null && code == null) {
 			return false;
 		} else if (code != null) {
-			if (id != null || code.isEmpty() || state == null || state.isEmpty()) {
+			if (id == null || id.isEmpty() || code.isEmpty() || state == null || state.isEmpty()) {
 				return false;
 			}
 		}
@@ -79,7 +79,7 @@ public class TokenQueryParams {
 	}
 
 	public boolean isOPResponse() {
-		return id == null && refreshToken == null && code != null && state != null;
+		return id != null && refreshToken == null && code != null && state != null;
 	}
 
 

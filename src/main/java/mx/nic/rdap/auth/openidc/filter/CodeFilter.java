@@ -1,6 +1,7 @@
 package mx.nic.rdap.auth.openidc.filter;
 
 import java.io.IOException;
+import java.net.URISyntaxException;
 
 import javax.servlet.Filter;
 import javax.servlet.FilterChain;
@@ -16,8 +17,10 @@ import com.nimbusds.openid.connect.sdk.claims.UserInfo;
 
 import mx.nic.rdap.auth.openidc.AuthenticationFlow;
 import mx.nic.rdap.auth.openidc.Configuration;
+import mx.nic.rdap.auth.openidc.OpenIDCProvider;
 import mx.nic.rdap.auth.openidc.exception.RequestException;
 import mx.nic.rdap.auth.openidc.exception.ResponseException;
+import mx.nic.rdap.auth.openidc.protocol.Discovery;
 
 /**
  * Specific filter used to parse an authorization code sent by an OP, the
@@ -58,8 +61,24 @@ public class CodeFilter implements Filter {
 				forwardURI = updateQuery(forwardURI, httpRequest);
 			} else {
 				UserInfo userInfo = null;
+				OpenIDCProvider provider;
+
 				try {
-					userInfo = AuthenticationFlow.getUserInfoFromAuthCode(httpRequest.getQueryString(), Configuration.getProvider());
+					provider = Discovery.discoverProvider(getIdFromForwardURI(forwardURI));
+					if (provider == null) {
+						HttpServletResponse httpResponse = (HttpServletResponse) response;
+						httpResponse.sendError(HttpServletResponse.SC_NOT_IMPLEMENTED, "OpenId Provider not supported");
+						return;
+					}
+				} catch (URISyntaxException e) {
+					HttpServletResponse httpResponse = (HttpServletResponse) response;
+					httpResponse.sendError(HttpServletResponse.SC_BAD_REQUEST, e.getMessage());
+					return;
+				}
+
+				
+				try {
+					userInfo = AuthenticationFlow.getUserInfoFromAuthCode(httpRequest.getQueryString(), provider);
 				} catch (Exception e) {
 					// Translate to HTTP Codes
 					if (e instanceof ResponseException) {
@@ -80,6 +99,22 @@ public class CodeFilter implements Filter {
 			return;
 		}
 		chain.doFilter(request, response);
+	}
+
+	private String getIdFromForwardURI(String forwardURI) {
+		String idString = "id=";
+		int idxOfIdKey = forwardURI.indexOf("?" + idString);
+		if (idxOfIdKey < 0) {
+			idxOfIdKey = forwardURI.indexOf("&" + idString);
+			if (idxOfIdKey < 0) {
+				return null;
+			}
+		}
+		forwardURI = forwardURI.substring(idxOfIdKey + idString.length() + 1);
+		if (forwardURI.indexOf("&") > 0) {
+			forwardURI = forwardURI.substring(0, forwardURI.indexOf("&"));
+		}
+		return forwardURI;
 	}
 
 	private String updateQuery(String forwardURI, HttpServletRequest httpRequest) {
