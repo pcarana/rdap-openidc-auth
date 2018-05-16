@@ -91,7 +91,7 @@ public class Core {
 		Nonce nonce = new Nonce();
 		AuthenticationRequest req = new AuthenticationRequest(authorizationEndpoint,
 				new ResponseType(ResponseType.Value.CODE), null, scope, clientID, clientRedirect, state, nonce, null,
-				prompt, -1, null, null, null, userId, null, claims, null, null, null, null);
+				prompt, -1, null, null, null, null, null, claims, null, null, null, null);
 		return req.toURI();
 	}
 	

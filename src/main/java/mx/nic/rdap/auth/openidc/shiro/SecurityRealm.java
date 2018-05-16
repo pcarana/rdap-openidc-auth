@@ -1,6 +1,5 @@
 package mx.nic.rdap.auth.openidc.shiro;
 
-import java.net.URISyntaxException;
 import java.util.List;
 import java.util.Set;
 
@@ -16,19 +15,14 @@ import org.apache.shiro.realm.AuthorizingRealm;
 import org.apache.shiro.subject.PrincipalCollection;
 
 import com.nimbusds.openid.connect.sdk.claims.UserInfo;
-import com.nimbusds.openid.connect.sdk.token.OIDCTokens;
 
 import mx.nic.rdap.auth.openidc.AuthenticationFlow;
 import mx.nic.rdap.auth.openidc.Configuration;
 import mx.nic.rdap.auth.openidc.OpenIDCProvider;
-import mx.nic.rdap.auth.openidc.exception.RequestException;
-import mx.nic.rdap.auth.openidc.exception.ResponseException;
-import mx.nic.rdap.auth.openidc.protocol.Discovery;
-import mx.nic.rdap.auth.openidc.shiro.token.CustomOIDCToken;
 import mx.nic.rdap.auth.openidc.shiro.token.UserInfoToken;
 
 public class SecurityRealm extends AuthorizingRealm {
-	
+
 	protected List<OpenIDCProvider> providers;
 
 	public SecurityRealm() {
@@ -38,21 +32,12 @@ public class SecurityRealm extends AuthorizingRealm {
 
 	@Override
 	public void onInit() {
-		// OpenIDCProvider provider = new OpenIDCProvider(clientId, clientSecret,
-		// clientCallbackURI, providerURI);
-
-		// OpenIDCProvider provider = providers.get("https://auth.viagenie.ca/oxauth/");
 		Configuration.initProviders(providers);
-		// try {
-		// AuthenticationFlow.updateProviderMetadata(provider);
-		// } catch (RequestException | ResponseException e) {
-		// throw new RuntimeException(e.getMessage(), e);
-		// }
 	}
 
 	@Override
 	public boolean supports(AuthenticationToken token) {
-		return token != null && (token instanceof UserInfoToken || token instanceof CustomOIDCToken);
+		return token != null && token instanceof UserInfoToken;
 	}
 
 	@Override
@@ -68,30 +53,6 @@ public class SecurityRealm extends AuthorizingRealm {
 
 	@Override
 	protected AuthenticationInfo doGetAuthenticationInfo(AuthenticationToken token) throws AuthenticationException {
-		if (token instanceof CustomOIDCToken) {
-			CustomOIDCToken customToken = (CustomOIDCToken) token;
-			OIDCTokens oidcTokens = (OIDCTokens) customToken.getCredentials();
-			// Now the token will be a UserInfoToken
-
-			OpenIDCProvider discoverProvider;
-			try {
-				discoverProvider = Discovery.discoverProvider(customToken.getUserId());
-				if (discoverProvider == null) {
-					throw new AuthenticationException("No discovery provider for user: " + customToken.getUserId());
-				}
-			} catch (URISyntaxException e) {
-				throw new AuthenticationException(e.getMessage(), e);
-			}
-
-			try {
-				UserInfo userInfo = AuthenticationFlow.getUserInfoFromToken(oidcTokens, discoverProvider);
-				token = new UserInfoToken(userInfo);
-			} catch (RequestException | ResponseException e) {
-				throw new AuthenticationException(e.getMessage(), e);
-			}
-		}
-		// It's a UserInfoToken instance
-		
 		// If there's no principal, then something went wrong authenticating it
 		if (token.getPrincipal() == null) {
 			throw new IncorrectCredentialsException("Failed login");
@@ -108,6 +69,5 @@ public class SecurityRealm extends AuthorizingRealm {
 	public void setProviders(List<OpenIDCProvider> providers) {
 		this.providers = providers;
 	}
-
 
 }

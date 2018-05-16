@@ -4,7 +4,7 @@
 
 	<groupId>mx.nic.rdap.auth</groupId>
 	<artifactId>rdap-openidc-auth</artifactId>
-	<version>0.0.1</version>
+	<version>0.0.3</version>
 	<packaging>jar</packaging>
 
 	<properties>
